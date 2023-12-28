@@ -1,0 +1,12 @@
+cmake_minimum_required(VERSION 3.19)
+cmake_policy(SET CMP0114 NEW)
+
+project(External-${FD_NAME})
+
+include(ExternalProject)
+ExternalProject_Add(
+  ${FD_NAME}
+  GIT_REPOSITORY ${FD_GIT_REPOSITORY}
+  GIT_TAG ${FD_GIT_TAG}
+  CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${PackageDirectory} -DCMAKE_PREFIX_PATH=${PackageDirectory} ${FD_CMAKE_OPTIONS}
+)
