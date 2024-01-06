@@ -5,13 +5,16 @@
 # dependency. The dependency is cloned from the specified Git `<repository>` and the specific `<tag>` is checked out; 
 # both parameters are required.
 #
-# Additional supported options are:
+# If the global FETCH_DEPENDENCY_PREFIX is set, the dependency will be cloned beneath that directory. Otherwise, the
+# dependency will be cloned underneath CMAKE_BINARY_DIR/External. Using FETCH_DEPENDENCY_PREFIX can be useful when a
+# project has many configurations, as it will allow all configurations to share the dependency clones.
 #
-#  - `PREFIX <prefix>`: Change the default prefix for storing dependency files.
+# Additional supported options for fetch_dependency() are:
+#
 #  - `CMAKE_OPTIONS <options>`: Pass the remaining options along to CMake when configuring the dependency.
 
 function(fetch_dependency FD_NAME)
-  cmake_parse_arguments(FD "" "GIT_REPOSITORY;GIT_TAG;PREFIX" "CMAKE_OPTIONS" ${ARGN})
+  cmake_parse_arguments(FD "" "GIT_REPOSITORY;GIT_TAG" "CMAKE_OPTIONS" ${ARGN})
 
   message("Fetching dependency '${FD_NAME}'...")
 
@@ -22,8 +25,10 @@ function(fetch_dependency FD_NAME)
   if(NOT FD_GIT_TAG)
     message(FATAL_ERROR "GIT_TAG must be provided.")
   endif()
-  
-  if(NOT FD_PREFIX)
+
+  if(FETCH_DEPENDENCY_PREFIX)
+    set(FD_PREFIX "${FETCH_DEPENDENCY_PREFIX}")
+  else()
     set(FD_PREFIX "${CMAKE_BINARY_DIR}/External")
   endif()
 
