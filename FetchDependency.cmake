@@ -62,7 +62,7 @@ function(fetch_dependency FD_NAME)
     set(ConfigurationGenerateSnippet "-DCMAKE_BUILD_TYPE=${FD_CONFIGURATION}")
   endif()
 
-  set(Version "${FD_GIT_TAG}\n${FD_CONFIGURATION}\n${FD_GENERATE_OPTIONS}\n${FD_BUILD_OPTIONS}")
+  set(Version "${FD_CONFIGURATION}\n${FD_GENERATE_OPTIONS}\n${FD_BUILD_OPTIONS}")
   string(STRIP ${Version} Version)
 
   set(ProjectDirectory "${FD_PREFIX}/Projects/${FD_NAME}")
