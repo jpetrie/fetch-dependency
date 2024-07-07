@@ -63,7 +63,7 @@ function(fetch_dependency FD_NAME)
   endif()
 
   set(Version "${FD_CONFIGURATION}\n${FD_GENERATE_OPTIONS}\n${FD_BUILD_OPTIONS}")
-  string(STRIP ${Version} Version)
+  string(STRIP "${Version}" Version)
 
   set(ProjectDirectory "${FD_PREFIX}/Projects/${FD_NAME}")
   set(VersionFilePath "${ProjectDirectory}/version.txt")
@@ -72,8 +72,8 @@ function(fetch_dependency FD_NAME)
     # If the version file exists, make sure the tag inside it matches the requested dependency tag. If it does,
     # early-out because the dependency exists and is up-to-date.
     file(READ ${VersionFilePath} ConfiguredVersion)
-    string(STRIP ${ConfiguredVersion} ConfiguredVersion)
-    if(${Version} STREQUAL ${ConfiguredVersion})
+    string(STRIP "${ConfiguredVersion}" ConfiguredVersion)
+    if("${Version}" STREQUAL "${ConfiguredVersion}")
       message("Dependency '${FD_NAME}' is up to date.")
       set(PerformFetch NO)
     else()
