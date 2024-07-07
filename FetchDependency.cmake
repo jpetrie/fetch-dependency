@@ -12,9 +12,10 @@
 # Additional supported options for fetch_dependency() are:
 #
 #  - `CMAKE_OPTIONS <options>`: Pass the remaining options along to CMake when configuring the dependency.
+#  - `CMAKE_BUILD_OPTIONS <options>`: Pass the remaining options along to CMake when building the dependency.
 
 function(fetch_dependency FD_NAME)
-  cmake_parse_arguments(FD "" "GIT_REPOSITORY;GIT_TAG" "CMAKE_OPTIONS" ${ARGN})
+  cmake_parse_arguments(FD "" "GIT_REPOSITORY;GIT_TAG" "CMAKE_OPTIONS;CMAKE_BUILD_OPTIONS" ${ARGN})
 
   message("Fetching dependency '${FD_NAME}'...")
 
@@ -57,7 +58,7 @@ function(fetch_dependency FD_NAME)
     )
 
     execute_process(
-      COMMAND ${CMAKE_COMMAND} -G ${CMAKE_GENERATOR} -S ${ConfigureDirectory} -B ${BuildDirectory}
+      COMMAND ${CMAKE_COMMAND} -G ${CMAKE_GENERATOR} -S ${ConfigureDirectory} -B ${BuildDirectory} ${FD_CMAKE_OPTIONS}
       OUTPUT_QUIET
       RESULT_VARIABLE ConfigureResult
     )
@@ -67,7 +68,7 @@ function(fetch_dependency FD_NAME)
     endif()
 
     execute_process(
-      COMMAND ${CMAKE_COMMAND} --build ${BuildDirectory}
+      COMMAND ${CMAKE_COMMAND} --build ${BuildDirectory} ${FD_CMAKE_BUILD_OPTIONS}
       OUTPUT_QUIET
       RESULT_VARIABLE BuildResult
     )
