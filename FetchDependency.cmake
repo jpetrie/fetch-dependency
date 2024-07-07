@@ -32,17 +32,22 @@ function(fetch_dependency FD_NAME)
     set(FD_PREFIX "${CMAKE_BINARY_DIR}/External")
   endif()
 
+  set(Version "${FD_GIT_TAG}\n${FD_CMAKE_OPTIONS}")
+  string(STRIP ${Version} Version)
+
   set(ProjectDirectory "${FD_PREFIX}/Projects/${FD_NAME}")
   set(VersionFilePath "${ProjectDirectory}/version.txt")
   set(PerformFetch YES)
   if(EXISTS ${VersionFilePath})
     # If the version file exists, make sure the tag inside it matches the requested dependency tag. If it does,
     # early-out because the dependency exists and is up-to-date.
-    file(READ ${VersionFilePath} ExistingVersion)
-    string(STRIP ${ExistingVersion} ExistingVersion)
-    if(${FD_GIT_TAG} STREQUAL ${ExistingVersion})
-      message("Requested version '${FD_GIT_TAG}' matches existing version '${ExistingVersion}', skipping fetch.")
+    file(READ ${VersionFilePath} ConfiguredVersion)
+    string(STRIP ${ConfiguredVersion} ConfiguredVersion)
+    if(${Version} STREQUAL ${ConfiguredVersion})
+      message("Dependency '${FD_NAME}' is up to date.")
       set(PerformFetch NO)
+    else()
+      message("Dependency '${FD_NAME}' is out of date.")
     endif()
   endif()
 
@@ -75,10 +80,10 @@ function(fetch_dependency FD_NAME)
     if(BuildResult)
       message(FATAL_ERROR "Build failed (${BuildResult}).")
     endif()
-
-    # Write the configured tag into the version file.
-    file(WRITE ${VersionFilePath} "${FD_GIT_TAG}\n")
   endif()
+
+  # Cache the configured version.
+  file(WRITE ${VersionFilePath} "${Version}\n")
 
   set(SavedPrefixPath ${CMAKE_PREFIX_PATH})
   set(CMAKE_PREFIX_PATH ${PackageDirectory})
