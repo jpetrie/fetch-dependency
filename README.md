@@ -3,7 +3,7 @@
 FetchDependency is a CMake module that provides a mechanism to download, configure, build and install (local to the
 calling project) a dependency package at configuration time.
 
-FetchDependency is designed to enable dependency handling in CMake according to a specific philosophy. It offers:
+FetchDependency is designed to enable dependency handling in CMake according to a specific philosophy:
 
  - A project's dependencies should be made available automatically, in order to facilitate the quickest turnaround
    from cloning a project to a successful build.
@@ -14,9 +14,8 @@ FetchDependency is designed to enable dependency handling in CMake according to 
 
 The cost of both of the aforementioned features is increased configuration time for the calling project (especially
 during initial configuration) as all dependencies are downloaded and built from source. To alleviate the impact on
-configuration time, FetchDependency tracks the fetched and configured version of each dependency. Only if the tracking
-file is missing or refers to a different version will FetchDependency actually re-do the fetch, configure and build
-steps.
+configuration time, FetchDependency tracks the configured version of each dependency to avoid unneccessary pulls
+or rebuilds.
 
 ## Installation
 
