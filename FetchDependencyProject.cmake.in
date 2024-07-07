@@ -8,5 +8,5 @@ ExternalProject_Add(
   ${FD_NAME}
   GIT_REPOSITORY ${FD_GIT_REPOSITORY}
   GIT_TAG ${FD_GIT_TAG}
-  CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${PackageDirectory} -DCMAKE_PREFIX_PATH=${PackageDirectory} ${FD_CMAKE_OPTIONS} ${ConfigurationGenerateSnippet}
+  CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${PackageDirectory} -DCMAKE_PREFIX_PATH=${PackageDirectory} ${FD_GENERATE_OPTIONS} ${ConfigurationGenerateSnippet}
 )

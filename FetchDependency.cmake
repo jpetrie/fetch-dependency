@@ -14,10 +14,14 @@
 #  - `CONFIGURATION <name>`: Use the named configuration instead of the default for the dependency. Specifying a
 #     configuration via this option will work correctly regardless of whether or not the generator in use is a single-
 #     or multi-configuration generator. If not specified, "Release" is assumed.
-#  - `CMAKE_OPTIONS <options>`: Pass the remaining options along to CMake when configuring the dependency.
+#  - `GENERATE_OPTIONS <options>`: Pass the remaining options to CMake when generating the dependency.
+#  - `BUILD_OPTIONS <options>`: Pass the remaining options to CMake when building the dependency. Note that these
+#     options are for CMake's `--build` command specifically.
+#  - `CMAKE_OPTIONS <options>`: Deprecated; please use `GENERATE_OPTIONS` instead. This option will be removed in a
+#     future version.
 
 function(fetch_dependency FD_NAME)
-  cmake_parse_arguments(FD "" "GIT_REPOSITORY;GIT_TAG;CONFIGURATION" "CMAKE_OPTIONS" ${ARGN})
+  cmake_parse_arguments(FD "" "GIT_REPOSITORY;GIT_TAG;CONFIGURATION" "GENERATE_OPTIONS;BUILD_OPTIONS;CMAKE_OPTIONS" ${ARGN})
 
   message("Fetching dependency '${FD_NAME}'...")
 
@@ -27,6 +31,13 @@ function(fetch_dependency FD_NAME)
   
   if(NOT FD_GIT_TAG)
     message(FATAL_ERROR "GIT_TAG must be provided.")
+  endif()
+
+  if(FD_CMAKE_OPTIONS)
+    message(AUTHOR_WARNING "CMAKE_OPTIONS is deprecated in favor of GENERATE_OPTIONS; please update your projects accordingly.")
+    if(NOT FD_GENERATE_OPTIONS)
+      set(FD_GENERATE_OPTIONS ${FD_CMAKE_OPTIONS})
+    endif()
   endif()
 
   if(FETCH_DEPENDENCY_PREFIX)
@@ -51,7 +62,7 @@ function(fetch_dependency FD_NAME)
     set(ConfigurationGenerateSnippet "-DCMAKE_BUILD_TYPE=${FD_CONFIGURATION}")
   endif()
 
-  set(Version "${FD_GIT_TAG}\n${FD_CONFIGURATION}\n${FD_CMAKE_OPTIONS}")
+  set(Version "${FD_GIT_TAG}\n${FD_CONFIGURATION}\n${FD_GENERATE_OPTIONS}\n${FD_BUILD_OPTIONS}")
   string(STRIP ${Version} Version)
 
   set(ProjectDirectory "${FD_PREFIX}/Projects/${FD_NAME}")
@@ -91,7 +102,7 @@ function(fetch_dependency FD_NAME)
     endif()
 
     execute_process(
-      COMMAND ${CMAKE_COMMAND} --build ${BuildDirectory} ${ConfigurationBuildSnippet}
+      COMMAND ${CMAKE_COMMAND} --build ${BuildDirectory} ${ConfigurationBuildSnippet} ${FD_BUILD_OPTIONS}
       OUTPUT_QUIET
       RESULT_VARIABLE BuildResult
     )
