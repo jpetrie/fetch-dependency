@@ -11,10 +11,13 @@
 #
 # Additional supported options for fetch_dependency() are:
 #
+#  - `CONFIGURATION <name>`: Use the named configuration instead of the default for the dependency. Specifying a
+#     configuration via this option will work correctly regardless of whether or not the generator in use is a single-
+#     or multi-configuration generator. If not specified, "Release" is assumed.
 #  - `CMAKE_OPTIONS <options>`: Pass the remaining options along to CMake when configuring the dependency.
 
 function(fetch_dependency FD_NAME)
-  cmake_parse_arguments(FD "" "GIT_REPOSITORY;GIT_TAG" "CMAKE_OPTIONS" ${ARGN})
+  cmake_parse_arguments(FD "" "GIT_REPOSITORY;GIT_TAG;CONFIGURATION" "CMAKE_OPTIONS" ${ARGN})
 
   message("Fetching dependency '${FD_NAME}'...")
 
@@ -32,7 +35,23 @@ function(fetch_dependency FD_NAME)
     set(FD_PREFIX "${CMAKE_BINARY_DIR}/External")
   endif()
 
-  set(Version "${FD_GIT_TAG}\n${FD_CMAKE_OPTIONS}")
+  if(NOT FD_CONFIGURATION)
+    set(FD_CONFIGURATION "Release")
+  endif()
+
+  get_property(IsMultiConfig GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
+  set(ConfigurationBuildSnippet "")
+  set(ConfigurationGenerateSnippet "")
+  if(IsMultiConfig)
+    # Multi-configuration generators need to specify the configuration during the build step.
+    set(ConfigurationBuildSnippet "--config ${FD_CONFIGURATION}")
+  else()
+    # Single-configuration generators can simply inject a value for CMAKE_BUILD_TYPE during configuration.
+    # Note that this variable is only actually used in the configure_file() template.
+    set(ConfigurationGenerateSnippet "-DCMAKE_BUILD_TYPE=${FD_CONFIGURATION}")
+  endif()
+
+  set(Version "${FD_GIT_TAG}\n${FD_CONFIGURATION}\n${FD_CMAKE_OPTIONS}")
   string(STRIP ${Version} Version)
 
   set(ProjectDirectory "${FD_PREFIX}/Projects/${FD_NAME}")
@@ -72,7 +91,7 @@ function(fetch_dependency FD_NAME)
     endif()
 
     execute_process(
-      COMMAND ${CMAKE_COMMAND} --build ${BuildDirectory}
+      COMMAND ${CMAKE_COMMAND} --build ${BuildDirectory} ${ConfigurationBuildSnippet}
       OUTPUT_QUIET
       RESULT_VARIABLE BuildResult
     )
