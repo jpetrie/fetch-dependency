@@ -9,7 +9,7 @@ FetchDependency is designed to enable dependency handling in CMake according to 
    from cloning a project to a successful build.
  - A project's dependencies should be stored with it by default, rather than a global location, in order to isolate
    the project from changes made outside the project.
- - A project's dependencies should not pollute the targets of the project or any other dependencies, in order to 
+ - A project's dependencies should not pollute the targets of the project or any other dependencies, in order to
    avoid target name collisions and keep an IDE's target list (when an IDE is used) focused.
 
 The cost of both of the aforementioned features is increased configuration time for the calling project (especially
@@ -29,7 +29,7 @@ FetchContent_Declare(FetchDependency
   GIT_TAG origin/main
 )
 FetchContent_MakeAvailable(FetchDependency)
-include(${fetchdependency_SOURCE_DIR}/FetchDependency.cmake")
+include(${fetchdependency_SOURCE_DIR}/FetchDependency.cmake)
 ```
 
 Other options include using Git submodules or subtrees to import this repository, or simply downloading the code to a
