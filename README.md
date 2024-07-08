@@ -19,9 +19,21 @@ or rebuilds.
 
 ## Installation
 
-Use Git submodules or subtrees to import the FetchDependency repository into your project repository, or simply
-download the code and place it in a suitable directory. Ensure your project's `CMAKE_MODULE_PATH` includes the
-directory containing FetchDependency, and then `include(FetchDependency)` in your `CMakeLists.txt`.
+The recommended way to automatically include FetchDependency in your project is to use CMake's
+[FetchContent](https://cmake.org/cmake/help/latest/module/FetchContent.html) module:
+
+```cmake
+include(FetchContent)
+FetchContent_Declare(FetchDependency
+  GIT_REPOSITORY https://github.com/jpetrie/fetch-dependency.git
+  GIT_TAG origin/main
+)
+FetchContent_MakeAvailable(FetchDependency)
+include(${fetchdependency_SOURCE_DIR}/FetchDependency.cmake")
+```
+
+Other options include using Git submodules or subtrees to import this repository, or simply downloading the code to a
+suitable location.
 
 FetchDependency requires CMake 3.19 or later.
 
@@ -29,13 +41,17 @@ FetchDependency requires CMake 3.19 or later.
 
 FetchDependency provides a single function, `fetch_dependency()`, which will fetch and find a dependency package:
 
-    fetch_dependency(Catch2 GIT_REPOSITORY https://github.com/catchorg/Catch2.git GIT_TAG v2.13.8)
+```cmake
+  fetch_dependency(Catch2 GIT_REPOSITORY https://github.com/catchorg/Catch2.git GIT_TAG v2.13.8)
+```
 
 This will fetch, configure, build and install [Catch2](https://github.com/catchorg/Catch2) within the calling project's
 CMake binary directory. It will then call `find_package()` to locate the dependency and make it available to future
 targets:
 
-    target_link_libraries(... Catch2::Catch2)
+```cmake
+  target_link_libraries(... Catch2::Catch2)
+```
 
 The source code of the FetchDependency module contains detailed documentation of `fetch_dependency()`'s behavior and
 options.
