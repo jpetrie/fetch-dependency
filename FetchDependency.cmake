@@ -23,7 +23,7 @@
 function(fetch_dependency FD_NAME)
   cmake_parse_arguments(FD "" "GIT_REPOSITORY;GIT_TAG;CONFIGURATION" "GENERATE_OPTIONS;BUILD_OPTIONS;CMAKE_OPTIONS" ${ARGN})
 
-  message("Fetching dependency '${FD_NAME}'...")
+  message("-- Checking dependency ${FD_NAME}")
 
   if(NOT FD_GIT_REPOSITORY)
     message(FATAL_ERROR "GIT_REPOSITORY must be provided.")
@@ -93,22 +93,24 @@ function(fetch_dependency FD_NAME)
 
     execute_process(
       COMMAND ${CMAKE_COMMAND} -G ${CMAKE_GENERATOR} -S ${ConfigureDirectory} -B ${BuildDirectory}
-      OUTPUT_QUIET
+      OUTPUT_VARIABLE ConfigureOutput
+      ERROR_VARIABLE ConfigureOutput
       RESULT_VARIABLE ConfigureResult
     )
 
     if(ConfigureResult)
-      message(FATAL_ERROR "Configuration failed (${ConfigureResult}).")
+      message(FATAL_ERROR "${ConfigureOutput}")
     endif()
 
     execute_process(
       COMMAND ${CMAKE_COMMAND} --build ${BuildDirectory} ${ConfigurationBuildSnippet} ${FD_BUILD_OPTIONS}
-      OUTPUT_QUIET
+      OUTPUT_VARIABLE BuildOutput
+      ERROR_VARIABLE BuildOutput
       RESULT_VARIABLE BuildResult
     )
 
     if(BuildResult)
-      message(FATAL_ERROR "Build failed (${BuildResult}).")
+      message(FATAL_ERROR "${BuildOutput}")
     endif()
   endif()
 
@@ -119,5 +121,7 @@ function(fetch_dependency FD_NAME)
   set(CMAKE_PREFIX_PATH ${PackageDirectory})
   find_package(${FD_NAME} REQUIRED HINTS ${PackageDirectory} NO_DEFAULT_PATH)
   set(CMAKE_PREFIX_PATH ${SavedPrefixPath})
+
+  message("-- Checking dependency ${FD_NAME} - done")
 endfunction()
 
