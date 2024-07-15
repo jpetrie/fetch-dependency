@@ -14,14 +14,16 @@
 #  - `CONFIGURATION <name>`: Use the named configuration instead of the default for the dependency. Specifying a
 #     configuration via this option will work correctly regardless of whether or not the generator in use is a single-
 #     or multi-configuration generator. If not specified, "Release" is assumed.
-#  - `GENERATE_OPTIONS <options>`: Pass the remaining options to CMake when generating the dependency.
-#  - `BUILD_OPTIONS <options>`: Pass the remaining options to CMake when building the dependency. Note that these
+#  - `GENERATE_OPTIONS <options>`: Pass the following options to CMake when generating the dependency.
+#  - `BUILD_OPTIONS <options>`: Pass the following options to CMake when building the dependency. Note that these
 #     options are for CMake's `--build` command specifically.
 #  - `CMAKE_OPTIONS <options>`: Deprecated; please use `GENERATE_OPTIONS` instead. This option will be removed in a
 #     future version.
+#  - `CMAKELIST_SUBDIRECTORY <path>`: The path to the directory containing the `CMakeLists.txt` for the dependency,
+#     if it is not located at the root. Always interpreted as a path relative to the dependency root.
 
 function(fetch_dependency FD_NAME)
-  cmake_parse_arguments(FD "" "GIT_REPOSITORY;GIT_TAG;CONFIGURATION" "GENERATE_OPTIONS;BUILD_OPTIONS;CMAKE_OPTIONS" ${ARGN})
+  cmake_parse_arguments(FD "" "GIT_REPOSITORY;GIT_TAG;CONFIGURATION;CMAKELIST_SUBDIRECTORY" "GENERATE_OPTIONS;BUILD_OPTIONS;CMAKE_OPTIONS" ${ARGN})
 
   message("-- Checking dependency ${FD_NAME}")
 
@@ -62,7 +64,7 @@ function(fetch_dependency FD_NAME)
     set(ConfigurationGenerateSnippet "-DCMAKE_BUILD_TYPE=${FD_CONFIGURATION}")
   endif()
 
-  set(Version "${FD_CONFIGURATION}\n${FD_GENERATE_OPTIONS}\n${FD_BUILD_OPTIONS}")
+  set(Version "${FD_CONFIGURATION}\n${FD_GENERATE_OPTIONS}\n${FD_BUILD_OPTIONS}\n${FD_CMAKELIST_SUBDIRECTORY}")
   string(STRIP "${Version}" Version)
 
   set(ProjectDirectory "${FD_PREFIX}/Projects/${FD_NAME}")
