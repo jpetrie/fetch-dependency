@@ -1,3 +1,26 @@
+
+function(_fd_run)
+  cmake_parse_arguments(FDR "" "WORKING_DIRECTORY;OUTPUT_VARIABLE" "COMMAND" ${ARGN})
+
+  # Because the WORKING_DIRECTORY argument to execute_process() can't be set to an empty string to fall back to default
+  # behavior, the execute_process() invocation is built and invoked dynamically in order to omit the argument if it was
+  # not supplied to _fd_run().
+  set(Code "execute_process(COMMAND ${FDR_COMMAND} OUTPUT_VARIABLE Output ERROR_VARIABLE Output RESULT_VARIABLE Result")
+  if(FDR_WORKING_DIRECTORY)
+    string(APPEND Code " WORKING_DIRECTORY ${FDR_WORKING_DIRECTORY}")
+  endif()
+  string(APPEND Code ")")
+  cmake_language(EVAL CODE ${Code})
+
+  if(Result)
+    message(FATAL_ERROR "${Output}")
+  endif()
+
+  if(FDR_OUTPUT_VARIABLE)
+    set(${FDR_OUTPUT_VARIABLE} ${Output} PARENT_SCOPE)
+  endif()
+endfunction()
+
 # fetch_dependency(<name> GIT_REPOSITORY <repository> GIT_TAG <tag> <options>...)
 #
 # Download, configure, build and locally install a dependency named `<name>`. The name is used to create the directory
@@ -19,7 +42,6 @@
 #     options are for CMake's `--build` command specifically.
 #  - `CMAKELIST_SUBDIRECTORY <path>`: The path to the directory containing the `CMakeLists.txt` for the dependency,
 #     if it is not located at the root. Always interpreted as a path relative to the dependency root.
-
 function(fetch_dependency FD_NAME)
   cmake_parse_arguments(FD "" "GIT_REPOSITORY;GIT_TAG;CONFIGURATION;CMAKELIST_SUBDIRECTORY" "GENERATE_OPTIONS;BUILD_OPTIONS" ${ARGN})
 
@@ -77,40 +99,15 @@ function(fetch_dependency FD_NAME)
 
   # Configure the dependency and execute the update target to ensure the source exists and matches what was requested
   # in GIT_TAG.
-  execute_process(
-    COMMAND ${CMAKE_COMMAND} -G ${CMAKE_GENERATOR} -S ${ConfigureDirectory} -B ${BuildDirectory}
-    OUTPUT_VARIABLE ConfigureOutput
-    ERROR_VARIABLE ConfigureOutput
-    RESULT_VARIABLE ConfigureResult
-  )
-
-  if(ConfigureResult)
-    message(FATAL_ERROR "${ConfigureOutput}")
-  endif()
-
-  execute_process(
-    COMMAND ${CMAKE_COMMAND} --build ${BuildDirectory} ${ConfigurationBuildSnippet} --target ${FD_NAME}-update
-    OUTPUT_VARIABLE BuildOutput
-    ERROR_VARIABLE BuildOutput
-    RESULT_VARIABLE BuildResult
-  )
-
-  if(BuildResult)
-    message(FATAL_ERROR "${BuildOutput}")
-  endif()
+  _fd_run(COMMAND ${CMAKE_COMMAND} -G ${CMAKE_GENERATOR} -S ${ConfigureDirectory} -B ${BuildDirectory})
+  _fd_run(COMMAND ${CMAKE_COMMAND} --build ${BuildDirectory} ${ConfigurationBuildSnippet} --target ${FD_NAME}-update)
 
   # Extract the commit.
-  execute_process(
+  _fd_run(
     COMMAND git rev-parse HEAD
     WORKING_DIRECTORY ${ProjectDirectory}/Build/${FD_NAME}-prefix/src/${FD_NAME}
     OUTPUT_VARIABLE CommitOutput
-    ERROR_VARIABLE CommitOutput
-    RESULT_VARIABLE CommitResult
   )
-
-  if(CommitResult)
-    message(FATAL_ERROR "${CommitOutput}")
-  endif()
 
   # If the current and requested commits differ, the build step needs to run.
   set(PerformBuild NO)
@@ -135,16 +132,7 @@ function(fetch_dependency FD_NAME)
   endif()
 
   if(PerformBuild)
-    execute_process(
-      COMMAND ${CMAKE_COMMAND} --build ${BuildDirectory} ${ConfigurationBuildSnippet} ${FD_BUILD_OPTIONS}
-      OUTPUT_VARIABLE BuildOutput
-      ERROR_VARIABLE BuildOutput
-      RESULT_VARIABLE BuildResult
-    )
-
-    if(BuildResult)
-      message(FATAL_ERROR "${BuildOutput}")
-    endif()
+    _fd_run(COMMAND ${CMAKE_COMMAND} --build ${BuildDirectory} ${ConfigurationBuildSnippet} ${FD_BUILD_OPTIONS})
   endif()
 
   # Write the cache files.
