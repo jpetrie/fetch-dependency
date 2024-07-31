@@ -122,8 +122,8 @@ function(fetch_dependency FD_NAME)
   endif()
 
   # If the current and requested options differ, the build step needs to run.
+  set(OptionsFilePath "${ProjectDirectory}/options.txt")
   if(NOT PerformBuild)
-    set(OptionsFilePath "${ProjectDirectory}/options.txt")
     if(EXISTS ${OptionsFilePath})
       file(READ ${OptionsFilePath} PreviousOptions)
       string(STRIP "${PreviousOptions}" PreviousOptions)
