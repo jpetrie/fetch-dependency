@@ -10,4 +10,5 @@ ExternalProject_Add(
   GIT_TAG ${FD_GIT_TAG}
   SOURCE_SUBDIR ${FD_CMAKELIST_SUBDIRECTORY}
   CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${PackageDirectory} -DCMAKE_PREFIX_PATH=${PackageDirectory} ${FD_GENERATE_OPTIONS} ${ConfigurationGenerateSnippet}
+  STEP_TARGETS update
 )

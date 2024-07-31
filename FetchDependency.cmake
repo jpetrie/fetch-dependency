@@ -55,46 +55,86 @@ function(fetch_dependency FD_NAME)
     set(ConfigurationGenerateSnippet "-DCMAKE_BUILD_TYPE=${FD_CONFIGURATION}")
   endif()
 
-  set(Version "${FD_CONFIGURATION}\n${FD_GENERATE_OPTIONS}\n${FD_BUILD_OPTIONS}\n${FD_CMAKELIST_SUBDIRECTORY}")
-  string(STRIP "${Version}" Version)
-
   set(ProjectDirectory "${FD_PREFIX}/Projects/${FD_NAME}")
-  set(VersionFilePath "${ProjectDirectory}/version.txt")
-  set(PerformFetch YES)
-  if(EXISTS ${VersionFilePath})
-    # If the version file exists, make sure the tag inside it matches the requested dependency tag. If it does,
-    # early-out because the dependency exists and is up-to-date.
-    file(READ ${VersionFilePath} ConfiguredVersion)
-    string(STRIP "${ConfiguredVersion}" ConfiguredVersion)
-    if("${Version}" STREQUAL "${ConfiguredVersion}")
-      message("Dependency '${FD_NAME}' is up to date.")
-      set(PerformFetch NO)
-    else()
-      message("Dependency '${FD_NAME}' is out of date.")
-    endif()
-  endif()
-
-  set(ConfigureDirectory "${ProjectDirectory}/Configure")
   set(BuildDirectory "${ProjectDirectory}/Build")
   set(PackageDirectory "${FD_PREFIX}/Packages")
 
-  if(PerformFetch)
-    configure_file(
-      ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/FetchDependencyProject.cmake.in
-      ${ConfigureDirectory}/CMakeLists.txt
-    )
+  set(Options "${FD_CONFIGURATION}\n${FD_GENERATE_OPTIONS}\n${FD_BUILD_OPTIONS}\n${FD_CMAKELIST_SUBDIRECTORY}")
+  string(STRIP "${Options}" Options)
 
-    execute_process(
-      COMMAND ${CMAKE_COMMAND} -G ${CMAKE_GENERATOR} -S ${ConfigureDirectory} -B ${BuildDirectory}
-      OUTPUT_VARIABLE ConfigureOutput
-      ERROR_VARIABLE ConfigureOutput
-      RESULT_VARIABLE ConfigureResult
-    )
+  set(CommitFilePath "${ProjectDirectory}/commit.txt")
+  set(PreviousCommit "n/a")
+  if(EXISTS ${CommitFilePath})
+    file(READ ${CommitFilePath} PreviousCommit)
+    string(STRIP "${PreviousCommit}" PreviousCommit)
+  endif()
 
-    if(ConfigureResult)
-      message(FATAL_ERROR "${ConfigureOutput}")
+  set(ConfigureDirectory "${ProjectDirectory}/Configure")
+  configure_file(
+    ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/FetchDependencyProject.cmake.in
+    ${ConfigureDirectory}/CMakeLists.txt
+  )
+
+  # Configure the dependency and execute the update target to ensure the source exists and matches what was requested
+  # in GIT_TAG.
+  execute_process(
+    COMMAND ${CMAKE_COMMAND} -G ${CMAKE_GENERATOR} -S ${ConfigureDirectory} -B ${BuildDirectory}
+    OUTPUT_VARIABLE ConfigureOutput
+    ERROR_VARIABLE ConfigureOutput
+    RESULT_VARIABLE ConfigureResult
+  )
+
+  if(ConfigureResult)
+    message(FATAL_ERROR "${ConfigureOutput}")
+  endif()
+
+  execute_process(
+    COMMAND ${CMAKE_COMMAND} --build ${BuildDirectory} ${ConfigurationBuildSnippet} --target ${FD_NAME}-update
+    OUTPUT_VARIABLE BuildOutput
+    ERROR_VARIABLE BuildOutput
+    RESULT_VARIABLE BuildResult
+  )
+
+  if(BuildResult)
+    message(FATAL_ERROR "${BuildOutput}")
+  endif()
+
+  # Extract the commit.
+  execute_process(
+    COMMAND git rev-parse HEAD
+    WORKING_DIRECTORY ${ProjectDirectory}/Build/${FD_NAME}-prefix/src/${FD_NAME}
+    OUTPUT_VARIABLE CommitOutput
+    ERROR_VARIABLE CommitOutput
+    RESULT_VARIABLE CommitResult
+  )
+
+  if(CommitResult)
+    message(FATAL_ERROR "${CommitOutput}")
+  endif()
+
+  # If the current and requested commits differ, the build step needs to run.
+  set(PerformBuild NO)
+  string(STRIP "${CommitOutput}" CommitOutput)
+  message("   HEAD is at ${CommitOutput}.")
+  if(NOT "${CommitOutput}" STREQUAL "${PreviousCommit}")
+    message("   Building because the previous HEAD was ${PreviousCommit}.")
+    set(PerformBuild YES)
+  endif()
+
+  # If the current and requested options differ, the build step needs to run.
+  if(NOT PerformBuild)
+    set(OptionsFilePath "${ProjectDirectory}/options.txt")
+    if(EXISTS ${OptionsFilePath})
+      file(READ ${OptionsFilePath} PreviousOptions)
+      string(STRIP "${PreviousOptions}" PreviousOptions)
+      if(NOT "${Options}" STREQUAL "${PreviousOptions}")
+        message("   Building because the dependency options have changed.") 
+        set(PerformBuild YES)
+      endif()
     endif()
+  endif()
 
+  if(PerformBuild)
     execute_process(
       COMMAND ${CMAKE_COMMAND} --build ${BuildDirectory} ${ConfigurationBuildSnippet} ${FD_BUILD_OPTIONS}
       OUTPUT_VARIABLE BuildOutput
@@ -107,8 +147,9 @@ function(fetch_dependency FD_NAME)
     endif()
   endif()
 
-  # Cache the configured version.
-  file(WRITE ${VersionFilePath} "${Version}\n")
+  # Write the cache files.
+  file(WRITE ${OptionsFilePath} "${Options}\n")
+  file(WRITE ${CommitFilePath} "${CommitOutput}\n")
 
   set(SavedPrefixPath ${CMAKE_PREFIX_PATH})
   set(CMAKE_PREFIX_PATH ${PackageDirectory})
