@@ -17,6 +17,7 @@ function(_fd_run)
   endif()
 
   if(FDR_OUTPUT_VARIABLE)
+    string(STRIP ${Output} Output)
     set(${FDR_OUTPUT_VARIABLE} ${Output} PARENT_SCOPE)
   endif()
 endfunction()
@@ -90,7 +91,6 @@ function(fetch_dependency FD_NAME)
 
   # If the current and requested commits differ, the build step needs to run.
   set(PerformBuild NO)
-  string(STRIP "${CommitOutput}" CommitOutput)
   message(VERBOSE "  This revision: ${CommitOutput}")
   message(VERBOSE "  Last revision: ${PreviousCommit}")
   if(NOT "${CommitOutput}" STREQUAL "${PreviousCommit}")
