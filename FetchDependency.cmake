@@ -79,8 +79,8 @@ function(fetch_dependency FD_NAME)
 
   # Configure the dependency and execute the update target to ensure the source exists and matches what was requested
   # in GIT_TAG.
-  _fd_run(COMMAND ${CMAKE_COMMAND} -G ${CMAKE_GENERATOR} -S ${ConfigureDirectory} -B ${BuildDirectory})
-  _fd_run(COMMAND ${CMAKE_COMMAND} --build ${BuildDirectory} ${ConfigurationBuildSnippet} --target ${FD_NAME}-update)
+  _fd_run(COMMAND "\"${CMAKE_COMMAND}\" -G ${CMAKE_GENERATOR} -S \"${ConfigureDirectory}\" -B \"${BuildDirectory}\"")
+  _fd_run(COMMAND "\"${CMAKE_COMMAND}\" --build \"${BuildDirectory}\" ${ConfigurationBuildSnippet} --target ${FD_NAME}-update")
 
   # Extract the commit.
   _fd_run(
@@ -112,7 +112,7 @@ function(fetch_dependency FD_NAME)
   endif()
 
   if(PerformBuild)
-    _fd_run(COMMAND ${CMAKE_COMMAND} --build ${BuildDirectory} ${ConfigurationBuildSnippet} ${FD_BUILD_OPTIONS})
+    _fd_run(COMMAND "\"${CMAKE_COMMAND}\" --build \"${BuildDirectory}\" ${ConfigurationBuildSnippet} ${FD_BUILD_OPTIONS}")
   endif()
 
   # Write the cache files.
