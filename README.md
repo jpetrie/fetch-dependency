@@ -66,7 +66,7 @@ Download, build and locally install a dependency named `<name>` during configura
   )
 ```
 
-<name> is used to create the directory where the dependency's source and artifacts will be stored and doesn't need to
+`<name>` is used to create the directory where the dependency's source and artifacts will be stored and doesn't need to
 correspond to the official name of the dependency.
 
 Options:
