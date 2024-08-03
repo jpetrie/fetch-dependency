@@ -2,15 +2,17 @@
 function(_fd_run)
   cmake_parse_arguments(FDR "" "WORKING_DIRECTORY;OUTPUT_VARIABLE" "COMMAND" ${ARGN})
 
-  # Because the WORKING_DIRECTORY argument to execute_process() can't be set to an empty string to fall back to default
-  # behavior, the execute_process() invocation is built and invoked dynamically in order to omit the argument if it was
-  # not supplied to _fd_run().
-  set(Code "execute_process(COMMAND ${FDR_COMMAND} OUTPUT_VARIABLE Output ERROR_VARIABLE Output RESULT_VARIABLE Result")
-  if(FDR_WORKING_DIRECTORY)
-    string(APPEND Code " WORKING_DIRECTORY ${FDR_WORKING_DIRECTORY}")
+  if(NOT FDR_WORKING_DIRECTORY)
+    set(FDR_WORKING_DIRECTORY "")
   endif()
-  string(APPEND Code ")")
-  cmake_language(EVAL CODE ${Code})
+
+  execute_process(
+    COMMAND ${FDR_COMMAND}
+    OUTPUT_VARIABLE Output
+    ERROR_VARIABLE Output
+    RESULT_VARIABLE Result
+    WORKING_DIRECTORY "${FDR_WORKING_DIRECTORY}"
+  )
 
   if(Result)
     message(FATAL_ERROR "${Output}")
@@ -73,19 +75,19 @@ function(fetch_dependency FD_NAME)
 
   set(ConfigureDirectory "${ProjectDirectory}/Configure")
   configure_file(
-    ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/FetchDependencyProject.cmake.in
-    ${ConfigureDirectory}/CMakeLists.txt
+    "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/FetchDependencyProject.cmake.in"
+    "${ConfigureDirectory}/CMakeLists.txt"
   )
 
   # Configure the dependency and execute the update target to ensure the source exists and matches what was requested
   # in GIT_TAG.
-  _fd_run(COMMAND "\"${CMAKE_COMMAND}\" -G ${CMAKE_GENERATOR} -S \"${ConfigureDirectory}\" -B \"${BuildDirectory}\"")
-  _fd_run(COMMAND "\"${CMAKE_COMMAND}\" --build \"${BuildDirectory}\" ${ConfigurationBuildSnippet} --target ${FD_NAME}-update")
+  _fd_run(COMMAND "${CMAKE_COMMAND}" -G ${CMAKE_GENERATOR} -S "${ConfigureDirectory}" -B "${BuildDirectory}")
+  _fd_run(COMMAND "${CMAKE_COMMAND}" --build "${BuildDirectory}" ${ConfigurationBuildSnippet} --target ${FD_NAME}-update)
 
   # Extract the commit.
   _fd_run(
     COMMAND git rev-parse HEAD
-    WORKING_DIRECTORY ${ProjectDirectory}/Build/${FD_NAME}-prefix/src/${FD_NAME}
+    WORKING_DIRECTORY "${ProjectDirectory}/Build/${FD_NAME}-prefix/src/${FD_NAME}"
     OUTPUT_VARIABLE CommitOutput
   )
 
@@ -112,7 +114,7 @@ function(fetch_dependency FD_NAME)
   endif()
 
   if(PerformBuild)
-    _fd_run(COMMAND "\"${CMAKE_COMMAND}\" --build \"${BuildDirectory}\" ${ConfigurationBuildSnippet} ${FD_BUILD_OPTIONS}")
+    _fd_run(COMMAND "${CMAKE_COMMAND}" --build "${BuildDirectory}" ${ConfigurationBuildSnippet} ${FD_BUILD_OPTIONS})
   endif()
 
   # Write the cache files.
