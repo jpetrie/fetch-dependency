@@ -1,3 +1,8 @@
+# Minimum CMake version required.
+set(FetchDependencyMinimumVersion "3.19")
+if(${CMAKE_VERSION} VERSION_LESS ${FetchDependencyMinimumVersion})
+  message(FATAL_ERROR "FetchDependency requires CMake ${FetchDependencyMinimumVersion} (currently using ${CMAKE_VERSION}).")
+endif()
 
 function(_fd_run)
   cmake_parse_arguments(FDR "" "WORKING_DIRECTORY;OUTPUT_VARIABLE" "COMMAND" ${ARGN})
