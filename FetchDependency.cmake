@@ -27,6 +27,8 @@ function(_fd_run)
     ERROR_VARIABLE Output
     RESULT_VARIABLE Result
     WORKING_DIRECTORY "${FDR_WORKING_DIRECTORY}"
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_STRIP_TRAILING_WHITESPACE
     COMMAND_ECHO ${EchoCommand}
     ${EchoOutput}
     ${EchoError}
@@ -37,7 +39,6 @@ function(_fd_run)
   endif()
 
   if(FDR_OUTPUT_VARIABLE)
-    string(STRIP ${Output} Output)
     set(${FDR_OUTPUT_VARIABLE} ${Output} PARENT_SCOPE)
   endif()
 endfunction()
