@@ -31,7 +31,7 @@ FetchContent_MakeAvailable(FetchDependency)
 include(${fetchdependency_SOURCE_DIR}/FetchDependency.cmake)
 ```
 
-FetchDependency requires CMake 3.19 or later.
+FetchDependency requires CMake 3.25 or later.
 
 ## Usage
 

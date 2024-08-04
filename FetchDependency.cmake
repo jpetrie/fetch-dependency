@@ -1,5 +1,6 @@
-# Minimum CMake version required.
-set(FetchDependencyMinimumVersion "3.19")
+# Minimum CMake version required. Currently driven by the use of GET_MESSAGE_LOG_LEVEL:
+# https://cmake.org/cmake/help/latest/command/cmake_language.html#get-message-log-level
+set(FetchDependencyMinimumVersion "3.25")
 if(${CMAKE_VERSION} VERSION_LESS ${FetchDependencyMinimumVersion})
   message(FATAL_ERROR "FetchDependency requires CMake ${FetchDependencyMinimumVersion} (currently using ${CMAKE_VERSION}).")
 endif()
@@ -11,12 +12,24 @@ function(_fd_run)
     set(FDR_WORKING_DIRECTORY "")
   endif()
 
+  cmake_language(GET_MESSAGE_LOG_LEVEL Level)
+  if((${Level} STREQUAL "VERBOSE") OR (${Level} STREQUAL "DEBUG") OR (${Level} STREQUAL "TRACE"))
+    set(EchoCommand "STDOUT")
+    set(EchoOutput "ECHO_OUTPUT_VARIABLE")
+    set(EchoError "ECHO_ERROR_VARIABLE")
+  else()
+    set(EchoCommand "NONE")
+  endif()
+
   execute_process(
     COMMAND ${FDR_COMMAND}
     OUTPUT_VARIABLE Output
     ERROR_VARIABLE Output
     RESULT_VARIABLE Result
     WORKING_DIRECTORY "${FDR_WORKING_DIRECTORY}"
+    COMMAND_ECHO ${EchoCommand}
+    ${EchoOutput}
+    ${EchoError}
   )
 
   if(Result)
