@@ -44,7 +44,7 @@ function(_fd_run)
 endfunction()
 
 function(fetch_dependency FD_NAME)
-  cmake_parse_arguments(FD "" "GIT_REPOSITORY;GIT_TAG;CONFIGURATION;CMAKELIST_SUBDIRECTORY" "GENERATE_OPTIONS;BUILD_OPTIONS" ${ARGN})
+  cmake_parse_arguments(FD "" "GIT_REPOSITORY;GIT_TAG;PACKAGE_NAME;CONFIGURATION;CMAKELIST_SUBDIRECTORY" "GENERATE_OPTIONS;BUILD_OPTIONS" ${ARGN})
 
   message(STATUS "Checking dependency ${FD_NAME}")
 
@@ -54,6 +54,10 @@ function(fetch_dependency FD_NAME)
   
   if(NOT FD_GIT_TAG)
     message(FATAL_ERROR "GIT_TAG must be provided.")
+  endif()
+
+  if(NOT FD_PACKAGE_NAME)
+    set(FD_PACKAGE_NAME "${FD_NAME}")
   endif()
 
   if(FETCH_DEPENDENCY_PREFIX)
@@ -142,7 +146,7 @@ function(fetch_dependency FD_NAME)
 
   set(SavedPrefixPath ${CMAKE_PREFIX_PATH})
   set(CMAKE_PREFIX_PATH ${PackageDirectory})
-  find_package(${FD_NAME} REQUIRED HINTS ${PackageDirectory} NO_DEFAULT_PATH)
+  find_package(${FD_PACKAGE_NAME} REQUIRED HINTS ${PackageDirectory} NO_DEFAULT_PATH)
   set(CMAKE_PREFIX_PATH ${SavedPrefixPath})
 
   message(STATUS "Checking dependency ${FD_NAME} - done")

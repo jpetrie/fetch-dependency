@@ -59,6 +59,7 @@ Download, build and locally install a dependency named `<name>` during configura
     <name>
     GIT_REPOSITORY <url>
     GIT_TAG <tag>
+    [PACKAGE_NAME <package>]
     [CONFIGURATION <configuration>]
     [GENERATE_OPTIONS <options...>]
     [BUILD_OPTIONS <options...>]
@@ -66,8 +67,9 @@ Download, build and locally install a dependency named `<name>` during configura
   )
 ```
 
-`<name>` is used to create the directory where the dependency's source and artifacts will be stored and doesn't need to
-correspond to the official name of the dependency.
+`<name>` is used to create the directory where the dependency's source and artifacts will be stored. Unless
+`PACKAGE_NAME` is provided (see below), it will also be used in the internal `find_package()` call to locate the
+dependency's targets.
 
 Options:
 - `GIT_REPOSITORY <url>` URL of the Git repository. If the global `FETCH_DEPENDENCY_PREFIX` is set, the dependency
@@ -78,6 +80,9 @@ Options:
 - `GIT_TAG <tag>` Git branch name, tag or commit hash. A commit hash is the recommended means of specifying a dependency
    version. Branches and tags should generally be specified as remote names to ensure the local clone will be correctly
    updated in the event of a tag move, branch rebase, or history rewrite.
+
+- `PACKAGE_NAME <package>` Pass `<package>` to `find_package()` internally when locating the built dependency's
+   targets. If not specified, the value of `<name>` will be used.
 
 - `CONFIGURATION <name>` Use the named configuration instead of the default for the dependency. Specifying a
    configuration via this option will work correctly regardless of whether or not the generator in use is a single-
