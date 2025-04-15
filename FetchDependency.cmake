@@ -140,9 +140,16 @@ function(fetch_dependency FD_NAME)
     _fd_run(COMMAND "${CMAKE_COMMAND}" --build "${BuildDirectory}" ${ConfigurationBuildSnippet} ${FD_BUILD_OPTIONS})
   endif()
 
+  # Import any propagated dependencies.
+  file(GLOB_RECURSE PropagatedDependencies "${FD_PREFIX}/fetched-*.cmake")
+  foreach(Propagated ${PropagatedDependencies})
+    include(${Propagated})
+  endforeach()
+
   # Write the cache files.
   file(WRITE ${OptionsFilePath} "${Options}\n")
   file(WRITE ${CommitFilePath} "${CommitOutput}\n")
+  file(WRITE "${ProjectDirectory}/fetched-${FD_PACKAGE_NAME}.cmake" "find_package(${FD_PACKAGE_NAME} REQUIRED HINTS ${PackageDirectory} NO_DEFAULT_PATH)")
 
   set(SavedPrefixPath ${CMAKE_PREFIX_PATH})
   set(CMAKE_PREFIX_PATH ${PackageDirectory})
