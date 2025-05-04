@@ -7,7 +7,6 @@ endif()
 
 function(_fd_run)
   cmake_parse_arguments(FDR "" "WORKING_DIRECTORY;OUTPUT_VARIABLE" "COMMAND" ${ARGN})
-
   if(NOT FDR_WORKING_DIRECTORY)
     set(FDR_WORKING_DIRECTORY "")
   endif()
@@ -152,7 +151,10 @@ function(fetch_dependency FD_NAME)
   # Write the cache files.
   file(WRITE ${OptionsFilePath} "${Options}\n")
   file(WRITE ${CommitFilePath} "${CommitOutput}\n")
-  file(WRITE "${ProjectDirectory}/fetched-${FD_PACKAGE_NAME}.cmake" "find_package(${FD_PACKAGE_NAME} REQUIRED HINTS \"${PackageDirectory}\" NO_DEFAULT_PATH)")
+  file(WRITE "${ProjectDirectory}/fetched-${FD_PACKAGE_NAME}.cmake" "set(SavedPrefixPath \${CMAKE_PREFIX_PATH})\n")
+  file(APPEND "${ProjectDirectory}/fetched-${FD_PACKAGE_NAME}.cmake" "set(CMAKE_PREFIX_PATH \"${PackageDirectory}\")\n")
+  file(APPEND "${ProjectDirectory}/fetched-${FD_PACKAGE_NAME}.cmake" "find_package(${FD_PACKAGE_NAME} REQUIRED HINTS \"${PackageDirectory}\" NO_DEFAULT_PATH)\n")
+  file(APPEND "${ProjectDirectory}/fetched-${FD_PACKAGE_NAME}.cmake" "set(CMAKE_PREFIX_PATH \${SavedPrefixPath})\n")
 
   find_package(${FD_PACKAGE_NAME} REQUIRED HINTS ${PackageDirectory} NO_DEFAULT_PATH)
   set(CMAKE_PREFIX_PATH ${SavedPrefixPath})
