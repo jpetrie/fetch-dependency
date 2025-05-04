@@ -149,7 +149,7 @@ function(fetch_dependency FD_NAME)
   # Write the cache files.
   file(WRITE ${OptionsFilePath} "${Options}\n")
   file(WRITE ${CommitFilePath} "${CommitOutput}\n")
-  file(WRITE "${ProjectDirectory}/fetched-${FD_PACKAGE_NAME}.cmake" "find_package(${FD_PACKAGE_NAME} REQUIRED HINTS ${PackageDirectory} NO_DEFAULT_PATH)")
+  file(WRITE "${ProjectDirectory}/fetched-${FD_PACKAGE_NAME}.cmake" "find_package(${FD_PACKAGE_NAME} REQUIRED HINTS \"${PackageDirectory}\" NO_DEFAULT_PATH)")
 
   set(SavedPrefixPath ${CMAKE_PREFIX_PATH})
   set(CMAKE_PREFIX_PATH ${PackageDirectory})
