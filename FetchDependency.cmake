@@ -86,6 +86,11 @@ function(fetch_dependency FD_NAME)
     set(ConfigurationGenerateSnippet "-DCMAKE_BUILD_TYPE=${FD_CONFIGURATION}")
   endif()
 
+  set(ToolchainSnippet "")
+  if (CMAKE_TOOLCHAIN_FILE)
+    set(ToolchainSnippet "--toolchain ${CMAKE_TOOLCHAIN_FILE}")
+  endif()
+
   set(ProjectDirectory "${FD_PREFIX}/Projects/${FD_NAME}")
   set(BuildDirectory "${ProjectDirectory}/Build")
   set(SourceDirectory "${BuildDirectory}/${FD_NAME}-prefix/src/${FD_NAME}")
@@ -99,7 +104,7 @@ function(fetch_dependency FD_NAME)
     set(${FD_OUT_BINARY_DIR} "${BuildDirectory}" PARENT_SCOPE)
   endif()
 
-  set(Options "${FD_CONFIGURATION}\n${FD_GENERATE_OPTIONS}\n${FD_BUILD_OPTIONS}\n${FD_CMAKELIST_SUBDIRECTORY}")
+  set(Options "${CMAKE_TOOLCHAIN_FILE}\n${FD_CONFIGURATION}\n${FD_GENERATE_OPTIONS}\n${FD_BUILD_OPTIONS}\n${FD_CMAKELIST_SUBDIRECTORY}")
   string(STRIP "${Options}" Options)
 
   set(CommitFilePath "${ProjectDirectory}/commit.txt")
