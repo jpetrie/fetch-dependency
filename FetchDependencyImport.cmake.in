@@ -1,0 +1,5 @@
+set(SavedPrefixPath ${CMAKE_PREFIX_PATH})
+set(CMAKE_PREFIX_PATH "@PackageDirectory@")
+find_package(@FD_PACKAGE_NAME@ REQUIRED HINTS "@PackageDirectory@" NO_DEFAULT_PATH)
+set(CMAKE_PREFIX_PATH ${SavedPrefixPath})
+
