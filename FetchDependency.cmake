@@ -43,7 +43,12 @@ function(_fd_run)
 endfunction()
 
 function(fetch_dependency FD_NAME)
-  cmake_parse_arguments(FD "" "GIT_REPOSITORY;GIT_TAG;PACKAGE_NAME;CONFIGURATION;CMAKELIST_SUBDIRECTORY" "GENERATE_OPTIONS;BUILD_OPTIONS" ${ARGN})
+  cmake_parse_arguments(FD
+    ""
+    "GIT_REPOSITORY;GIT_TAG;PACKAGE_NAME;CONFIGURATION;CMAKELIST_SUBDIRECTORY;OUT_SOURCE_DIR;OUT_BINARY_DIR"
+    "GENERATE_OPTIONS;BUILD_OPTIONS"
+    ${ARGN}
+  )
 
   message(STATUS "Checking dependency ${FD_NAME}")
 
@@ -83,7 +88,16 @@ function(fetch_dependency FD_NAME)
 
   set(ProjectDirectory "${FD_PREFIX}/Projects/${FD_NAME}")
   set(BuildDirectory "${ProjectDirectory}/Build")
+  set(SourceDirectory "${BuildDirectory}/${FD_NAME}-prefix/src/${FD_NAME}")
   set(PackageDirectory "${FD_PREFIX}/Packages")
+
+  if(FD_OUT_SOURCE_DIR)
+    set(${FD_OUT_SOURCE_DIR} "${SourceDirectory}" PARENT_SCOPE)
+  endif()
+
+  if(FD_OUT_BINARY_DIR)
+    set(${FD_OUT_BINARY_DIR} "${BuildDirectory}" PARENT_SCOPE)
+  endif()
 
   set(Options "${FD_CONFIGURATION}\n${FD_GENERATE_OPTIONS}\n${FD_BUILD_OPTIONS}\n${FD_CMAKELIST_SUBDIRECTORY}")
   string(STRIP "${Options}" Options)
@@ -109,7 +123,7 @@ function(fetch_dependency FD_NAME)
   # Extract the commit.
   _fd_run(
     COMMAND git rev-parse HEAD
-    WORKING_DIRECTORY "${ProjectDirectory}/Build/${FD_NAME}-prefix/src/${FD_NAME}"
+    WORKING_DIRECTORY "${SourceDirectory}"
     OUTPUT_VARIABLE CommitOutput
   )
 

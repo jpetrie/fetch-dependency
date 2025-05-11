@@ -64,6 +64,8 @@ Download, build and locally install a dependency named `<name>` during configura
     [GENERATE_OPTIONS <options...>]
     [BUILD_OPTIONS <options...>]
     [CMAKELIST_SUBDIRECTORY <path>]
+    [OUT_SOURCE_DIR <out-var>]
+    [OUT_BINARY_DIR <out-var>]
   )
 ```
 
@@ -94,4 +96,9 @@ Options:
 
 - `CMAKELIST_SUBDIRECTORY <path>` The path to the directory containing the `CMakeLists.txt` for the dependency if it
    is not located at the dependency root. Always interpreted as a path relative to the dependency root.
+
+- `OUT_SOURCE_DIR <out-var>` The name of a variable that will be set to the absolute path to the dependency's source
+  tree.
+
+- `OUT_BINDARY_DIR <out-var>` The name of a variable that will be set the absolute path to the dependency's binary tree.
 
