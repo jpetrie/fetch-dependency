@@ -6,9 +6,10 @@ project(External-${FD_NAME})
 include(ExternalProject)
 ExternalProject_Add(
   ${FD_NAME}
+  SOURCE_DIR "${SourceDirectory}"
   GIT_REPOSITORY ${FD_GIT_REPOSITORY}
   GIT_TAG ${FD_GIT_TAG}
   SOURCE_SUBDIR "${FD_CMAKELIST_SUBDIRECTORY}"
-  CMAKE_ARGS "${ToolchainSnippet}" "-DCMAKE_INSTALL_PREFIX=${PackageDirectory}" "-DCMAKE_PREFIX_PATH=${PackageDirectory}" ${FD_GENERATE_OPTIONS} ${ConfigurationGenerateSnippet}
+  CMAKE_ARGS "${ToolchainSnippet}" "-DCMAKE_INSTALL_PREFIX=${PackageDirectory}" "-DCMAKE_PREFIX_PATH=${FetchDependencyPackages}" "-DFD_LOCAL_PACKAGES=${LocalPackages}" ${FD_GENERATE_OPTIONS} ${ConfigurationGenerateSnippet}
   STEP_TARGETS update
 )

@@ -91,10 +91,17 @@ function(fetch_dependency FD_NAME)
     set(ToolchainSnippet "--toolchain ${CMAKE_TOOLCHAIN_FILE}")
   endif()
 
-  set(ProjectDirectory "${FD_PREFIX}/Projects/${FD_NAME}")
+  set(ProjectDirectory "${FD_PREFIX}/${FD_NAME}")
+  set(ConfigureDirectory "${ProjectDirectory}/Configure")
+  set(SourceDirectory "${ProjectDirectory}/Source")
   set(BuildDirectory "${ProjectDirectory}/Build")
-  set(SourceDirectory "${BuildDirectory}/${FD_NAME}-prefix/src/${FD_NAME}")
-  set(PackageDirectory "${FD_PREFIX}/Packages")
+  set(PackageDirectory "${ProjectDirectory}/Package")
+
+  set(CommitFilePath "${ProjectDirectory}/commit.txt")
+  set(OptionsFilePath "${ProjectDirectory}/options.txt")
+  set(CallerFetchedFilePath "${CMAKE_CURRENT_BINARY_DIR}/FetchedDependencies.txt")
+
+  list(APPEND FetchDependencyPackages "${PackageDirectory}")
 
   if(FD_OUT_SOURCE_DIR)
     set(${FD_OUT_SOURCE_DIR} "${SourceDirectory}" PARENT_SCOPE)
@@ -107,14 +114,12 @@ function(fetch_dependency FD_NAME)
   set(Options "${CMAKE_TOOLCHAIN_FILE}\n${FD_CONFIGURATION}\n${FD_GENERATE_OPTIONS}\n${FD_BUILD_OPTIONS}\n${FD_CMAKELIST_SUBDIRECTORY}")
   string(STRIP "${Options}" Options)
 
-  set(CommitFilePath "${ProjectDirectory}/commit.txt")
   set(PreviousCommit "n/a")
   if(EXISTS ${CommitFilePath})
     file(READ ${CommitFilePath} PreviousCommit)
     string(STRIP "${PreviousCommit}" PreviousCommit)
   endif()
 
-  set(ConfigureDirectory "${ProjectDirectory}/Configure")
   configure_file(
     "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/FetchDependencyProject.cmake.in"
     "${ConfigureDirectory}/CMakeLists.txt"
@@ -142,7 +147,6 @@ function(fetch_dependency FD_NAME)
   endif()
 
   # If the current and requested options differ, the build step needs to run.
-  set(OptionsFilePath "${ProjectDirectory}/options.txt")
   if(NOT PerformBuild)
     if(EXISTS ${OptionsFilePath})
       file(READ ${OptionsFilePath} PreviousOptions)
@@ -158,26 +162,29 @@ function(fetch_dependency FD_NAME)
     _fd_run(COMMAND "${CMAKE_COMMAND}" --build "${BuildDirectory}" ${ConfigurationBuildSnippet} ${FD_BUILD_OPTIONS})
   endif()
 
-  set(SavedPrefixPath ${CMAKE_PREFIX_PATH})
-  set(CMAKE_PREFIX_PATH ${PackageDirectory})
-
-  # Import any propagated dependencies.
-  file(GLOB_RECURSE PropagatedDependencies "${FD_PREFIX}/fetched-*.cmake")
-  foreach(Propagated ${PropagatedDependencies})
-    include(${Propagated})
-  endforeach()
+  # Read the local package cache for the dependency, if it exists.
+  if(EXISTS "${BuildDirectory}/FetchedDependencies.txt")
+    file(STRINGS "${BuildDirectory}/FetchedDependencies.txt" LocalPackages)
+  endif()
 
   # Write the cache files.
   file(WRITE ${OptionsFilePath} "${Options}\n")
   file(WRITE ${CommitFilePath} "${CommitOutput}\n")
-  configure_file(
-    "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/FetchDependencyImport.cmake.in"
-    "${ProjectDirectory}/fetched-${FD_PACKAGE_NAME}.cmake"
-    @ONLY
-  )
 
-  find_package(${FD_PACKAGE_NAME} REQUIRED HINTS ${PackageDirectory} NO_DEFAULT_PATH)
+  # Write the most up-to-date list of packages fetched so that anything downstream of the calling project will know
+  # where its dependencies were written to.
+  string(REPLACE ";" "\n" CallerFetchedFileLines "${FetchDependencyPackages}")
+  file(WRITE ${CallerFetchedFilePath} "${CallerFetchedFileLines}\n")
+
+  set(SavedPrefixPath ${CMAKE_PREFIX_PATH})
+  list(APPEND Prefixes ${LocalPackages})
+  list(APPEND Prefixes ${FetchDependencyPackages})
+  set(CMAKE_PREFIX_PATH "${Prefixes}")
+  find_package(${FD_PACKAGE_NAME} REQUIRED PATHS ${PackageDirectory})
   set(CMAKE_PREFIX_PATH ${SavedPrefixPath})
+
+  # Propagate the updated package directory list.
+  set(FetchDependencyPackages "${FetchDependencyPackages}" PARENT_SCOPE)
 
   message(STATUS "Checking dependency ${FD_NAME} - done")
 endfunction()
