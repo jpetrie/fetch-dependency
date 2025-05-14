@@ -162,9 +162,28 @@ function(fetch_dependency FD_NAME)
     _fd_run(COMMAND "${CMAKE_COMMAND}" --build "${BuildDirectory}" ${ConfigurationBuildSnippet} ${FD_BUILD_OPTIONS})
   endif()
 
-  # Read the local package cache for the dependency, if it exists.
-  if(EXISTS "${BuildDirectory}/FetchedDependencies.txt")
-    file(STRINGS "${BuildDirectory}/FetchedDependencies.txt" LocalPackages)
+  # Read the local package cache for the dependency, if it exists. This cache actually ends up in the prefix 
+  # subdirectory ExternalProject_Add() generates for the true build directory.
+  #
+  # Finding these packages here ensures that if the dependency includes them in its link interface, they'll be loaded
+  # in the calling project when it needs to actually link with this dependency.
+  set(LocalPackagesFilePath "${BuildDirectory}/${FD_NAME}-prefix/src/${FD_NAME}-build/FetchedDependencies.txt")
+  if(EXISTS "${LocalPackagesFilePath}")
+    file(STRINGS "${LocalPackagesFilePath}" LocalPackages)
+    foreach(LocalPackage ${LocalPackages})
+      string(REGEX REPLACE "/Package$" "" LocalName "${LocalPackage}")
+      cmake_path(GET LocalName FILENAME LocalName)
+
+      # Use the current set of package paths when finding the dependency; this is neccessary to ensure that the any
+      # dependencies of the dependency that use direct find_package() calls that were satified by an earlier call to
+      # fetch_dependency() will find those dependencies.
+      set(SavedPrefixPath ${CMAKE_PREFIX_PATH})
+      list(APPEND Prefixes ${LocalPackages})
+      list(APPEND Prefixes ${FetchDependencyPackages})
+      set(CMAKE_PREFIX_PATH "${Prefixes}")
+      find_package(${LocalName} REQUIRED PATHS ${LocalPackage})
+      set(CMAKE_PREFIX_PATH ${SavedPrefixPath})
+    endforeach()
   endif()
 
   # Write the cache files.
