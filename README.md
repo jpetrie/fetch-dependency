@@ -59,6 +59,7 @@ Download, build and locally install a dependency named `<name>` during configura
     <name>
     GIT_REPOSITORY <url>
     GIT_TAG <tag>
+    [ROOT <path>]
     [PACKAGE_NAME <package>]
     [CONFIGURATION <configuration>]
     [GENERATE_OPTIONS <options...>]
@@ -74,14 +75,16 @@ Download, build and locally install a dependency named `<name>` during configura
 dependency's targets.
 
 Options:
-- `GIT_REPOSITORY <url>` URL of the Git repository. If the global `FETCH_DEPENDENCY_PREFIX` is set, the dependency
-   will be cloned beneath that directory. Otherwise, the dependency will be cloned underneath
-   `CMAKE_BINARY_DIR/External`. Using `FETCH_DEPENDENCY_PREFIX can be useful when a project has many configurations, as
-   it will allow all configurations to share the dependency artifacts.
+- `GIT_REPOSITORY <url>` URL of the Git repository. See the documentation for the `ROOT` parameter below for detail on
+  where the repository will be cloned.
 
 - `GIT_TAG <tag>` Git branch name, tag or commit hash. A commit hash is the recommended means of specifying a dependency
    version. Branches and tags should generally be specified as remote names to ensure the local clone will be correctly
    updated in the event of a tag move, branch rebase, or history rewrite.
+
+- `ROOT <path>` The root storage directory for the dependency. If not specified, the value of the global
+  `FETCH_DEPENDENCY_DEFAULT_ROOT` will be used. If `FETCH_DEPENDENCY_DEFAULT_ROOT` is not defined, the value "External"
+  will be used. In all cases, if the root is a relative path, it will be interpreted as relative to `CMAKE_BINARY_DIR`.
 
 - `PACKAGE_NAME <package>` Pass `<package>` to `find_package()` internally when locating the built dependency's
    targets. If not specified, the value of `<name>` will be used.

@@ -45,7 +45,7 @@ endfunction()
 function(fetch_dependency FD_NAME)
   cmake_parse_arguments(FD
     ""
-    "GIT_REPOSITORY;GIT_TAG;PACKAGE_NAME;CONFIGURATION;CMAKELIST_SUBDIRECTORY;OUT_SOURCE_DIR;OUT_BINARY_DIR"
+    "ROOT;GIT_REPOSITORY;GIT_TAG;PACKAGE_NAME;CONFIGURATION;CMAKELIST_SUBDIRECTORY;OUT_SOURCE_DIR;OUT_BINARY_DIR"
     "GENERATE_OPTIONS;BUILD_OPTIONS"
     ${ARGN}
   )
@@ -64,11 +64,20 @@ function(fetch_dependency FD_NAME)
     set(FD_PACKAGE_NAME "${FD_NAME}")
   endif()
 
-  if(FETCH_DEPENDENCY_PREFIX)
-    set(FD_PREFIX "${FETCH_DEPENDENCY_PREFIX}")
-  else()
-    set(FD_PREFIX "${CMAKE_BINARY_DIR}/External")
+  if(NOT FD_ROOT)
+    if(FETCH_DEPENDENCY_DEFAULT_ROOT)
+      set(FD_ROOT "${FETCH_DEPENDENCY_DEFAULT_ROOT}")
+    else()
+      set(FD_ROOT "External")
+    endif()
   endif()
+
+  # If FD_ROOT is a relative path, it is interpreted as being relative to the current binary directory.
+  cmake_path(IS_RELATIVE FD_ROOT IsRootRelative)
+  if(IsRootRelative)
+    cmake_path(APPEND CMAKE_BINARY_DIR ${FD_ROOT} OUTPUT_VARIABLE FD_ROOT)
+  endif()
+  message(VERBOSE "  Using root: ${FD_ROOT}")
 
   if(NOT FD_CONFIGURATION)
     set(FD_CONFIGURATION "Release")
@@ -91,7 +100,7 @@ function(fetch_dependency FD_NAME)
     set(ToolchainSnippet "--toolchain ${CMAKE_TOOLCHAIN_FILE}")
   endif()
 
-  set(ProjectDirectory "${FD_PREFIX}/${FD_NAME}")
+  set(ProjectDirectory "${FD_ROOT}/${FD_NAME}")
   set(ConfigureDirectory "${ProjectDirectory}/Configure")
   set(SourceDirectory "${ProjectDirectory}/Source")
   set(BuildDirectory "${ProjectDirectory}/Build")
@@ -99,7 +108,7 @@ function(fetch_dependency FD_NAME)
 
   set(CommitFilePath "${ProjectDirectory}/commit.txt")
   set(OptionsFilePath "${ProjectDirectory}/options.txt")
-  set(CallerFetchedFilePath "${CMAKE_CURRENT_BINARY_DIR}/FetchedDependencies.txt")
+  set(CallerFetchedFilePath "${CMAKE_BINARY_DIR}/FetchedDependencies.txt")
 
   list(APPEND FetchDependencyPackages "${PackageDirectory}")
 
