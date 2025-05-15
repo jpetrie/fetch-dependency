@@ -98,10 +98,11 @@ Options:
 - `BUILD_OPTIONS <options...>` Pass the following options to CMake's `--build` command when building the dependency.
 
 - `CMAKELIST_SUBDIRECTORY <path>` The path to the directory containing the `CMakeLists.txt` for the dependency if it
-   is not located at the dependency root. Always interpreted as a path relative to the dependency root.
+   is not located at the root of the dependency's source tree. Always interpreted as a path relative to the dependency's
+   source tree.
 
 - `OUT_SOURCE_DIR <out-var>` The name of a variable that will be set to the absolute path to the dependency's source
   tree.
 
-- `OUT_BINDARY_DIR <out-var>` The name of a variable that will be set the absolute path to the dependency's binary tree.
+- `OUT_BINARY_DIR <out-var>` The name of a variable that will be set the absolute path to the dependency's binary tree.
 
