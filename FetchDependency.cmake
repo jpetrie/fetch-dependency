@@ -42,6 +42,14 @@ function(_fd_run)
   endif()
 endfunction()
 
+function(_fd_find FDF_NAME)
+  cmake_parse_arguments(FDF "" "ROOT" "PATHS" ${ARGN})
+  set(SavedPrefixPath ${CMAKE_PREFIX_PATH})
+  set(CMAKE_PREFIX_PATH "${FDF_PATHS}")
+  find_package(${FDF_NAME} REQUIRED PATHS ${FDF_ROOT})
+  set(CMAKE_PREFIX_PATH ${SavedPrefixPath})
+endfunction()
+
 function(fetch_dependency FD_NAME)
   cmake_parse_arguments(FD
     ""
@@ -186,12 +194,7 @@ function(fetch_dependency FD_NAME)
       # Use the current set of package paths when finding the dependency; this is neccessary to ensure that the any
       # dependencies of the dependency that use direct find_package() calls that were satified by an earlier call to
       # fetch_dependency() will find those dependencies.
-      set(SavedPrefixPath ${CMAKE_PREFIX_PATH})
-      list(APPEND Prefixes ${LocalPackages})
-      list(APPEND Prefixes ${FetchDependencyPackages})
-      set(CMAKE_PREFIX_PATH "${Prefixes}")
-      find_package(${LocalName} REQUIRED PATHS ${LocalPackage})
-      set(CMAKE_PREFIX_PATH ${SavedPrefixPath})
+      _fd_find(${LocalName} ROOT ${LocalPackage} PATHS ${LocalPackages} ${FetchDependencyPackages})
     endforeach()
   endif()
 
@@ -204,12 +207,7 @@ function(fetch_dependency FD_NAME)
   string(REPLACE ";" "\n" CallerFetchedFileLines "${FetchDependencyPackages}")
   file(WRITE ${CallerFetchedFilePath} "${CallerFetchedFileLines}\n")
 
-  set(SavedPrefixPath ${CMAKE_PREFIX_PATH})
-  list(APPEND Prefixes ${LocalPackages})
-  list(APPEND Prefixes ${FetchDependencyPackages})
-  set(CMAKE_PREFIX_PATH "${Prefixes}")
-  find_package(${FD_PACKAGE_NAME} REQUIRED PATHS ${PackageDirectory})
-  set(CMAKE_PREFIX_PATH ${SavedPrefixPath})
+  _fd_find(${FD_PACKAGE_NAME} ROOT ${PackageDirectory} PATHS ${LocalPackages} ${FetchDependencyPackages})
 
   # Propagate the updated package directory list.
   set(FetchDependencyPackages "${FetchDependencyPackages}" PARENT_SCOPE)
