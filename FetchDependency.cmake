@@ -142,6 +142,15 @@ function(fetch_dependency FD_NAME)
     "${ConfigureDirectory}/CMakeLists.txt"
   )
 
+  # Pass the prefix paths via the CMAKE_PREFIX_PATH environment variable. This avoids a warning that would otherwise be
+  # generated if the dependency never actually caused CMAKE_PREFIX_PATH to be referenced.
+  set(ChildPaths ${FetchDependencyPackages})
+  if(UNIX)
+    # The platform path delimiter must be used for the environment variable.
+    string(REPLACE ";" ":" ChildPaths "${ChildPaths}")
+  endif()
+  set(ENV{CMAKE_PREFIX_PATH} ${ChildPaths})
+
   # Configure the dependency and execute the update target to ensure the source exists and matches what was requested
   # in GIT_TAG.
   _fd_run(COMMAND "${CMAKE_COMMAND}" -G ${CMAKE_GENERATOR} -S "${ConfigureDirectory}" -B "${BuildDirectory}")
@@ -179,8 +188,7 @@ function(fetch_dependency FD_NAME)
     _fd_run(COMMAND "${CMAKE_COMMAND}" --build "${BuildDirectory}" ${ConfigurationBuildSnippet} ${FD_BUILD_OPTIONS})
   endif()
 
-  # Read the local package cache for the dependency, if it exists. This cache actually ends up in the prefix 
-  # subdirectory ExternalProject_Add() generates for the true build directory.
+  # Read the local package cache for the dependency, if it exists.
   #
   # Finding these packages here ensures that if the dependency includes them in its link interface, they'll be loaded
   # in the calling project when it needs to actually link with this dependency.
