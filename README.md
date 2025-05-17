@@ -10,11 +10,11 @@ FetchDependency is designed to enable dependency handling in CMake according to 
  - A project's dependencies should be stored with it by default, rather than in a global location, in order to isolate
    the project from changes made outside the project itself.
  - A project's dependencies should not pollute the targets of the project or any other dependencies, in order to
-   avoid target name collisions and keep a the project's target list focused.
+   avoid target name collisions and keep the project's target list focused.
 
 The cost of the aforementioned features is increased configuration time when using FetchDependency, especially during
 the initial configuration, as all dependencies are downloaded and built from source. This is noticeably un-CMake-like
-behavior, but it is neccessary to achieve the above. 
+behavior, but it is necessary to achieve the above. 
 
 To alleviate the impact of configure-time builds, FetchDependency attempts to minimize build invocations by tracking
 information about the build such as its commit hash and the options used to configure it. Additionally, most of
@@ -125,7 +125,7 @@ Defines the default root directory for fetched dependencies. It is initially und
 Stores the set of package directories fetched by the project (and all of its dependencies, recursively) so far.
 
 ## Recipes
-### Fast Build Infrastructure Interation
+### Fast Build Infrastructure Iteration
 In cases where you need to work on your project's `CMakeLists.txt` or similar and will be repeatedly re-configuring your
 project, it can be desirable to skip as much of FetchDependency's overhead as possible. This can be accomplished by
 setting the environment variable `FETCH_DEPENDENCY_FAST` to 1.
@@ -134,6 +134,6 @@ When this "fast mode" is enabled, `fetch_dependency()` only executes the logic n
 dependency. It skips the up-to-date checks and build attempts that it might normally run, saving considerable time in
 the configuration process (especially if you have many dependencies).
 
-"Fast mode" requires that a regular configure has been executed at least once, or the files neccessary for the
+"Fast mode" requires that a regular configure has been executed at least once, or the files necessary for the
 `find_package()` machinery to work correctly will not exist and the configuration will fail.
 
