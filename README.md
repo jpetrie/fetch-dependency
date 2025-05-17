@@ -33,6 +33,11 @@ include(${fetchdependency_SOURCE_DIR}/FetchDependency.cmake)
 
 FetchDependency requires CMake 3.25 or later.
 
+⚠️FetchDependency has not reached version 1.0 and as such you should expect "breaking changes" with nearly potentially
+every commit. Breaking changes include API changes as well as storage architecture changes (which would require fetched
+dependencies to be re-fetched or re-built). It is strongly recommended that you pin FetchDependency to a specific commit
+ID via `GIT_TAG` when installing.
+
 ## Usage
 
 FetchDependency provides a single function, `fetch_dependency()`, which will fetch and find a dependency package:
