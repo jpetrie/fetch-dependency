@@ -58,7 +58,13 @@ function(fetch_dependency FD_NAME)
     ${ARGN}
   )
 
-  message(STATUS "Checking dependency ${FD_NAME}")
+  if($ENV{FETCH_DEPENDENCY_FAST})
+    set(FastMode ON)
+    message(STATUS "Checking dependency ${FD_NAME} (fast)")
+  else()
+    set(FastMode OFF)
+    message(STATUS "Checking dependency ${FD_NAME}")
+  endif()
 
   if(NOT FD_GIT_REPOSITORY)
     message(FATAL_ERROR "GIT_REPOSITORY must be provided.")
@@ -91,23 +97,6 @@ function(fetch_dependency FD_NAME)
     set(FD_CONFIGURATION "Release")
   endif()
 
-  get_property(IsMultiConfig GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
-  set(ConfigurationBuildSnippet "")
-  set(ConfigurationGenerateSnippet "")
-  if(IsMultiConfig)
-    # Multi-configuration generators need to specify the configuration during the build step.
-    set(ConfigurationBuildSnippet "--config ${FD_CONFIGURATION}")
-  else()
-    # Single-configuration generators can simply inject a value for CMAKE_BUILD_TYPE during configuration.
-    # Note that this variable is only actually used in the configure_file() template.
-    set(ConfigurationGenerateSnippet "-DCMAKE_BUILD_TYPE=${FD_CONFIGURATION}")
-  endif()
-
-  set(ToolchainSnippet "")
-  if (CMAKE_TOOLCHAIN_FILE)
-    set(ToolchainSnippet "--toolchain ${CMAKE_TOOLCHAIN_FILE}")
-  endif()
-
   set(ProjectDirectory "${FD_ROOT}/${FD_NAME}")
   set(ConfigureDirectory "${ProjectDirectory}/Configure")
   set(SourceDirectory "${ProjectDirectory}/Source")
@@ -128,64 +117,83 @@ function(fetch_dependency FD_NAME)
     set(${FD_OUT_BINARY_DIR} "${BuildDirectory}" PARENT_SCOPE)
   endif()
 
-  set(Options "${CMAKE_TOOLCHAIN_FILE}\n${FD_CONFIGURATION}\n${FD_GENERATE_OPTIONS}\n${FD_BUILD_OPTIONS}\n${FD_CMAKELIST_SUBDIRECTORY}")
-  string(STRIP "${Options}" Options)
+  if(NOT FastMode)
+    get_property(IsMultiConfig GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
+    set(ConfigurationBuildSnippet "")
+    set(ConfigurationGenerateSnippet "")
+    if(IsMultiConfig)
+      # Multi-configuration generators need to specify the configuration during the build step.
+      set(ConfigurationBuildSnippet "--config ${FD_CONFIGURATION}")
+    else()
+      # Single-configuration generators can simply inject a value for CMAKE_BUILD_TYPE during configuration.
+      # Note that this variable is only actually used in the configure_file() template.
+      set(ConfigurationGenerateSnippet "-DCMAKE_BUILD_TYPE=${FD_CONFIGURATION}")
+    endif()
 
-  set(PreviousCommit "n/a")
-  if(EXISTS ${CommitFilePath})
-    file(READ ${CommitFilePath} PreviousCommit)
-    string(STRIP "${PreviousCommit}" PreviousCommit)
-  endif()
+    set(ToolchainSnippet "")
+    if (CMAKE_TOOLCHAIN_FILE)
+      set(ToolchainSnippet "--toolchain ${CMAKE_TOOLCHAIN_FILE}")
+    endif()
 
-  configure_file(
-    "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/FetchDependencyProject.cmake.in"
-    "${ConfigureDirectory}/CMakeLists.txt"
-  )
+    set(Options "${CMAKE_TOOLCHAIN_FILE}\n${FD_CONFIGURATION}\n${FD_GENERATE_OPTIONS}\n${FD_BUILD_OPTIONS}\n${FD_CMAKELIST_SUBDIRECTORY}")
+    string(STRIP "${Options}" Options)
 
-  # Pass the prefix paths via the CMAKE_PREFIX_PATH environment variable. This avoids a warning that would otherwise be
-  # generated if the dependency never actually caused CMAKE_PREFIX_PATH to be referenced.
-  set(ChildPaths ${FETCH_DEPENDENCY_PACKAGES})
-  if(UNIX)
-    # The platform path delimiter must be used for the environment variable.
-    string(REPLACE ";" ":" ChildPaths "${ChildPaths}")
-  endif()
-  set(ENV{CMAKE_PREFIX_PATH} ${ChildPaths})
+    set(PreviousCommit "n/a")
+    if(EXISTS ${CommitFilePath})
+      file(READ ${CommitFilePath} PreviousCommit)
+      string(STRIP "${PreviousCommit}" PreviousCommit)
+    endif()
 
-  # Configure the dependency and execute the update target to ensure the source exists and matches what was requested
-  # in GIT_TAG.
-  _fd_run(COMMAND "${CMAKE_COMMAND}" -G ${CMAKE_GENERATOR} -S "${ConfigureDirectory}" -B "${BuildDirectory}")
-  _fd_run(COMMAND "${CMAKE_COMMAND}" --build "${BuildDirectory}" ${ConfigurationBuildSnippet} --target ${FD_NAME}-update)
+    configure_file(
+      "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/FetchDependencyProject.cmake.in"
+      "${ConfigureDirectory}/CMakeLists.txt"
+    )
 
-  # Extract the commit.
-  _fd_run(
-    COMMAND git rev-parse HEAD
-    WORKING_DIRECTORY "${SourceDirectory}"
-    OUTPUT_VARIABLE CommitOutput
-  )
+    # Pass the prefix paths via the CMAKE_PREFIX_PATH environment variable. This avoids a warning that would otherwise be
+    # generated if the dependency never actually caused CMAKE_PREFIX_PATH to be referenced.
+    set(ChildPaths ${FETCH_DEPENDENCY_PACKAGES})
+    if(UNIX)
+      # The platform path delimiter must be used for the environment variable.
+      string(REPLACE ";" ":" ChildPaths "${ChildPaths}")
+    endif()
+    set(ENV{CMAKE_PREFIX_PATH} ${ChildPaths})
 
-  # If the current and requested commits differ, the build step needs to run.
-  set(PerformBuild NO)
-  message(VERBOSE "  This revision: ${CommitOutput}")
-  message(VERBOSE "  Last revision: ${PreviousCommit}")
-  if(NOT "${CommitOutput}" STREQUAL "${PreviousCommit}")
-    message(STATUS "  Building (revisions don't match)")
-    set(PerformBuild YES)
-  endif()
+    # Configure the dependency and execute the update target to ensure the source exists and matches what was requested
+    # in GIT_TAG.
+    _fd_run(COMMAND "${CMAKE_COMMAND}" -G ${CMAKE_GENERATOR} -S "${ConfigureDirectory}" -B "${BuildDirectory}")
+    _fd_run(COMMAND "${CMAKE_COMMAND}" --build "${BuildDirectory}" ${ConfigurationBuildSnippet} --target ${FD_NAME}-update)
 
-  # If the current and requested options differ, the build step needs to run.
-  if(NOT PerformBuild)
-    if(EXISTS ${OptionsFilePath})
-      file(READ ${OptionsFilePath} PreviousOptions)
-      string(STRIP "${PreviousOptions}" PreviousOptions)
-      if(NOT "${Options}" STREQUAL "${PreviousOptions}")
-        message(STATUS "  Building (options don't match)")
-        set(PerformBuild YES)
+    # Extract the commit.
+    _fd_run(
+      COMMAND git rev-parse HEAD
+      WORKING_DIRECTORY "${SourceDirectory}"
+      OUTPUT_VARIABLE CommitOutput
+    )
+
+    # If the current and requested commits differ, the build step needs to run.
+    set(PerformBuild NO)
+    message(VERBOSE "  This revision: ${CommitOutput}")
+    message(VERBOSE "  Last revision: ${PreviousCommit}")
+    if(NOT "${CommitOutput}" STREQUAL "${PreviousCommit}")
+      message(STATUS "  Building (revisions don't match)")
+      set(PerformBuild YES)
+    endif()
+
+    # If the current and requested options differ, the build step needs to run.
+    if(NOT PerformBuild)
+      if(EXISTS ${OptionsFilePath})
+        file(READ ${OptionsFilePath} PreviousOptions)
+        string(STRIP "${PreviousOptions}" PreviousOptions)
+        if(NOT "${Options}" STREQUAL "${PreviousOptions}")
+          message(STATUS "  Building (options don't match)")
+          set(PerformBuild YES)
+        endif()
       endif()
     endif()
-  endif()
 
-  if(PerformBuild)
-    _fd_run(COMMAND "${CMAKE_COMMAND}" --build "${BuildDirectory}" ${ConfigurationBuildSnippet} ${FD_BUILD_OPTIONS})
+    if(PerformBuild)
+      _fd_run(COMMAND "${CMAKE_COMMAND}" --build "${BuildDirectory}" ${ConfigurationBuildSnippet} ${FD_BUILD_OPTIONS})
+    endif()
   endif()
 
   # Read the local package cache for the dependency, if it exists.
