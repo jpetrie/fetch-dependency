@@ -118,7 +118,7 @@ function(fetch_dependency FD_NAME)
   set(OptionsFilePath "${ProjectDirectory}/options.txt")
   set(CallerFetchedFilePath "${CMAKE_BINARY_DIR}/FetchedDependencies.txt")
 
-  list(APPEND FetchDependencyPackages "${PackageDirectory}")
+  list(APPEND FETCH_DEPENDENCY_PACKAGES "${PackageDirectory}")
 
   if(FD_OUT_SOURCE_DIR)
     set(${FD_OUT_SOURCE_DIR} "${SourceDirectory}" PARENT_SCOPE)
@@ -144,7 +144,7 @@ function(fetch_dependency FD_NAME)
 
   # Pass the prefix paths via the CMAKE_PREFIX_PATH environment variable. This avoids a warning that would otherwise be
   # generated if the dependency never actually caused CMAKE_PREFIX_PATH to be referenced.
-  set(ChildPaths ${FetchDependencyPackages})
+  set(ChildPaths ${FETCH_DEPENDENCY_PACKAGES})
   if(UNIX)
     # The platform path delimiter must be used for the environment variable.
     string(REPLACE ";" ":" ChildPaths "${ChildPaths}")
@@ -202,7 +202,7 @@ function(fetch_dependency FD_NAME)
       # Use the current set of package paths when finding the dependency; this is neccessary to ensure that the any
       # dependencies of the dependency that use direct find_package() calls that were satified by an earlier call to
       # fetch_dependency() will find those dependencies.
-      _fd_find(${LocalName} ROOT ${LocalPackage} PATHS ${LocalPackages} ${FetchDependencyPackages})
+      _fd_find(${LocalName} ROOT ${LocalPackage} PATHS ${LocalPackages} ${FETCH_DEPENDENCY_PACKAGES})
     endforeach()
   endif()
 
@@ -212,13 +212,13 @@ function(fetch_dependency FD_NAME)
 
   # Write the most up-to-date list of packages fetched so that anything downstream of the calling project will know
   # where its dependencies were written to.
-  string(REPLACE ";" "\n" CallerFetchedFileLines "${FetchDependencyPackages}")
+  string(REPLACE ";" "\n" CallerFetchedFileLines "${FETCH_DEPENDENCY_PACKAGES}")
   file(WRITE ${CallerFetchedFilePath} "${CallerFetchedFileLines}\n")
 
-  _fd_find(${FD_PACKAGE_NAME} ROOT ${PackageDirectory} PATHS ${LocalPackages} ${FetchDependencyPackages})
+  _fd_find(${FD_PACKAGE_NAME} ROOT ${PackageDirectory} PATHS ${LocalPackages} ${FETCH_DEPENDENCY_PACKAGES})
 
   # Propagate the updated package directory list.
-  set(FetchDependencyPackages "${FetchDependencyPackages}" PARENT_SCOPE)
+  set(FETCH_DEPENDENCY_PACKAGES "${FETCH_DEPENDENCY_PACKAGES}" PARENT_SCOPE)
 
   message(STATUS "Checking dependency ${FD_NAME} - done")
 endfunction()

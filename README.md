@@ -17,6 +17,7 @@ the initial configuration, as all dependencies are downloaded and built from sou
 FetchDependency tracks the version of each dependency in order to avoid unneccessarily invoking a build.
 
 ## Installation
+FetchDependency requires CMake 3.25 or later.
 
 The recommended way to automatically include FetchDependency in your project is to use CMake's
 [FetchContent](https://cmake.org/cmake/help/latest/module/FetchContent.html) module:
@@ -31,12 +32,11 @@ FetchContent_MakeAvailable(FetchDependency)
 include(${fetchdependency_SOURCE_DIR}/FetchDependency.cmake)
 ```
 
-FetchDependency requires CMake 3.25 or later.
+⚠️FetchDependency has not reached version 1.0!⚠️
 
-⚠️FetchDependency has not reached version 1.0 and as such you should expect "breaking changes" with potentially every
-commit. Breaking changes include API changes as well as storage architecture changes (requiring dependencies to be
-re-downloaded and/or re-built). It is strongly recommended that you pin FetchDependency to a specific commit ID via
-`GIT_TAG` when installing.
+As such you should expect breaking changes with potentially every commit, including changes to the storage architecture
+that will require all dependencies to be re-downloaded and/or re-built. It is strongly recommended that you pin
+FetchDependency to a specific commit ID via `GIT_TAG` when installing.
 
 ## Usage
 
@@ -112,6 +112,9 @@ Options:
 - `OUT_BINARY_DIR <out-var>` The name of a variable that will be set the absolute path to the dependency's binary tree.
 
 ### FETCH_DEPENDENCY_DEFAULT_ROOT
-A variable that holds the default root directory for fetched dependencies. It is initially undefined, which causes 
+Defines the default root directory for fetched dependencies. It is initially undefined, which causes
 `fetch_dependency()` to fall back to storing dependencies underneath `${CMAKE_BINARY_DIR}/External/`. 
+
+### FETCH_DEPENDENCY_PACKAGES
+Stores the set of package directories fetched by the project (and all of its dependencies, recursively) so far.
 
