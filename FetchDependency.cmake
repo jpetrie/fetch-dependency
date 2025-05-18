@@ -69,7 +69,7 @@ function(fetch_dependency FD_NAME)
   if(NOT FD_GIT_REPOSITORY)
     message(FATAL_ERROR "GIT_REPOSITORY must be provided.")
   endif()
-  
+
   if(NOT FD_GIT_TAG)
     message(FATAL_ERROR "GIT_TAG must be provided.")
   endif()
@@ -160,7 +160,7 @@ function(fetch_dependency FD_NAME)
 
     # Configure the dependency and execute the update target to ensure the source exists and matches what was requested
     # in GIT_TAG.
-    _fd_run(COMMAND "${CMAKE_COMMAND}" -G ${CMAKE_GENERATOR} -S "${ConfigureDirectory}" -B "${BuildDirectory}")
+    _fd_run(COMMAND "${CMAKE_COMMAND}" "${ToolchainSnippet}" -G ${CMAKE_GENERATOR} -S "${ConfigureDirectory}" -B "${BuildDirectory}")
     _fd_run(COMMAND "${CMAKE_COMMAND}" --build "${BuildDirectory}" ${ConfigurationBuildSnippet} --target ${FD_NAME}-update)
 
     # Extract the commit.
