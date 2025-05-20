@@ -70,6 +70,7 @@ Download, build and locally install a dependency named `<name>` during configura
     <name>
     GIT_REPOSITORY <url>
     GIT_TAG <tag>
+    [FETCH_ONLY]
     [ROOT <path>]
     [PACKAGE_NAME <package>]
     [CONFIGURATION <configuration>]
@@ -92,6 +93,10 @@ Options:
 - `GIT_TAG <tag>` Git branch name, tag or commit hash. A commit hash is the recommended means of specifying a dependency
    version. Branches and tags should generally be specified as remote names to ensure the local clone will be correctly
    updated in the event of a tag move, branch rebase, or history rewrite.
+
+- `FETCH_ONLY` Download the dependency, but do not build or install it. This is useful for dependencies where only the
+   source is needed. Note that this will still _configure_ the dependency (this is required to enable updates if
+   `GIT_TAG` is changed, due to how `fetch_dependency()` is implemented).
 
 - `ROOT <path>` The root storage directory for the dependency. If not specified, the value of the global
   `FETCH_DEPENDENCY_DEFAULT_ROOT` will be used. If `FETCH_DEPENDENCY_DEFAULT_ROOT` is not defined, the value "External"

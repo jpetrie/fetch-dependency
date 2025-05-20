@@ -52,7 +52,7 @@ endfunction()
 
 function(fetch_dependency FD_NAME)
   cmake_parse_arguments(FD
-    ""
+    "FETCH_ONLY"
     "ROOT;GIT_REPOSITORY;GIT_TAG;PACKAGE_NAME;CONFIGURATION;CMAKELIST_SUBDIRECTORY;OUT_SOURCE_DIR;OUT_BINARY_DIR"
     "GENERATE_OPTIONS;BUILD_OPTIONS"
     ${ARGN}
@@ -163,70 +163,76 @@ function(fetch_dependency FD_NAME)
     _fd_run(COMMAND "${CMAKE_COMMAND}" "${ToolchainSnippet}" -G ${CMAKE_GENERATOR} -S "${ConfigureDirectory}" -B "${BuildDirectory}")
     _fd_run(COMMAND "${CMAKE_COMMAND}" --build "${BuildDirectory}" ${ConfigurationBuildSnippet} --target ${FD_NAME}-update)
 
-    # Extract the commit.
-    _fd_run(
-      COMMAND git rev-parse HEAD
-      WORKING_DIRECTORY "${SourceDirectory}"
-      OUTPUT_VARIABLE CommitOutput
-    )
+    if(NOT FD_FETCH_ONLY)
+      # Extract the commit.
+      _fd_run(
+        COMMAND git rev-parse HEAD
+        WORKING_DIRECTORY "${SourceDirectory}"
+        OUTPUT_VARIABLE CommitOutput
+      )
 
-    # If the current and requested commits differ, the build step needs to run.
-    set(PerformBuild NO)
-    message(VERBOSE "  This revision: ${CommitOutput}")
-    message(VERBOSE "  Last revision: ${PreviousCommit}")
-    if(NOT "${CommitOutput}" STREQUAL "${PreviousCommit}")
-      message(STATUS "  Building (revisions don't match)")
-      set(PerformBuild YES)
-    endif()
+      # If the current and requested commits differ, the build step needs to run.
+      set(PerformBuild NO)
+      message(VERBOSE "  This revision: ${CommitOutput}")
+      message(VERBOSE "  Last revision: ${PreviousCommit}")
+      if(NOT "${CommitOutput}" STREQUAL "${PreviousCommit}")
+        message(STATUS "  Building (revisions don't match)")
+        set(PerformBuild YES)
+      endif()
 
-    # If the current and requested options differ, the build step needs to run.
-    if(NOT PerformBuild)
-      if(EXISTS ${OptionsFilePath})
-        file(READ ${OptionsFilePath} PreviousOptions)
-        string(STRIP "${PreviousOptions}" PreviousOptions)
-        if(NOT "${Options}" STREQUAL "${PreviousOptions}")
-          message(STATUS "  Building (options don't match)")
-          set(PerformBuild YES)
+      # If the current and requested options differ, the build step needs to run.
+      if(NOT PerformBuild)
+        if(EXISTS ${OptionsFilePath})
+          file(READ ${OptionsFilePath} PreviousOptions)
+          string(STRIP "${PreviousOptions}" PreviousOptions)
+          if(NOT "${Options}" STREQUAL "${PreviousOptions}")
+            message(STATUS "  Building (options don't match)")
+            set(PerformBuild YES)
+          endif()
         endif()
       endif()
-    endif()
 
-    if(PerformBuild)
-      _fd_run(COMMAND "${CMAKE_COMMAND}" --build "${BuildDirectory}" ${ConfigurationBuildSnippet} ${FD_BUILD_OPTIONS})
+      if(PerformBuild)
+        _fd_run(COMMAND "${CMAKE_COMMAND}" --build "${BuildDirectory}" ${ConfigurationBuildSnippet} ${FD_BUILD_OPTIONS})
+      endif()
     endif()
   endif()
 
-  # Read the local package cache for the dependency, if it exists.
-  #
-  # Finding these packages here ensures that if the dependency includes them in its link interface, they'll be loaded
-  # in the calling project when it needs to actually link with this dependency.
-  set(LocalPackagesFilePath "${BuildDirectory}/${FD_NAME}-prefix/src/${FD_NAME}-build/FetchedDependencies.txt")
-  if(EXISTS "${LocalPackagesFilePath}")
-    file(STRINGS "${LocalPackagesFilePath}" LocalPackages)
-    foreach(LocalPackage ${LocalPackages})
-      string(REGEX REPLACE "/Package$" "" LocalName "${LocalPackage}")
-      cmake_path(GET LocalName FILENAME LocalName)
+  if(NOT FD_FETCH_ONLY)
+    # Read the local package cache for the dependency, if it exists.
+    #
+    # Finding these packages here ensures that if the dependency includes them in its link interface, they'll be loaded
+    # in the calling project when it needs to actually link with this dependency.
+    set(LocalPackagesFilePath "${BuildDirectory}/${FD_NAME}-prefix/src/${FD_NAME}-build/FetchedDependencies.txt")
+    if(EXISTS "${LocalPackagesFilePath}")
+      file(STRINGS "${LocalPackagesFilePath}" LocalPackages)
+      foreach(LocalPackage ${LocalPackages})
+        string(REGEX REPLACE "/Package$" "" LocalName "${LocalPackage}")
+        cmake_path(GET LocalName FILENAME LocalName)
 
-      # Use the current set of package paths when finding the dependency; this is neccessary to ensure that the any
-      # dependencies of the dependency that use direct find_package() calls that were satified by an earlier call to
-      # fetch_dependency() will find those dependencies.
-      _fd_find(${LocalName} ROOT ${LocalPackage} PATHS ${LocalPackages} ${FETCH_DEPENDENCY_PACKAGES})
-    endforeach()
+        # Use the current set of package paths when finding the dependency; this is necessary to ensure that the any
+        # dependencies of the dependency that use direct find_package() calls that were satisfied by an earlier call to
+        # fetch_dependency() will find those dependencies.
+        _fd_find(${LocalName} ROOT ${LocalPackage} PATHS ${LocalPackages} ${FETCH_DEPENDENCY_PACKAGES})
+      endforeach()
+    endif()
   endif()
 
   # Write the cache files.
   file(WRITE ${OptionsFilePath} "${Options}\n")
   file(WRITE ${CommitFilePath} "${CommitOutput}\n")
 
-  # Write the most up-to-date list of packages fetched so that anything downstream of the calling project will know
-  # where its dependencies were written to.
-  string(REPLACE ";" "\n" CallerFetchedFileLines "${FETCH_DEPENDENCY_PACKAGES}")
-  file(WRITE ${CallerFetchedFilePath} "${CallerFetchedFileLines}\n")
+  if(NOT FD_FETCH_ONLY)
+    # Write the most up-to-date list of packages fetched so that anything downstream of the calling project will know
+    # where its dependencies were written to.
+    string(REPLACE ";" "\n" CallerFetchedFileLines "${FETCH_DEPENDENCY_PACKAGES}")
+    file(WRITE ${CallerFetchedFilePath} "${CallerFetchedFileLines}\n")
 
-  _fd_find(${FD_PACKAGE_NAME} ROOT ${PackageDirectory} PATHS ${LocalPackages} ${FETCH_DEPENDENCY_PACKAGES})
+    _fd_find(${FD_PACKAGE_NAME} ROOT ${PackageDirectory} PATHS ${LocalPackages} ${FETCH_DEPENDENCY_PACKAGES})
 
-  # Propagate the updated package directory list.
-  set(FETCH_DEPENDENCY_PACKAGES "${FETCH_DEPENDENCY_PACKAGES}" PARENT_SCOPE)
+    # Propagate the updated package directory list.
+    set(FETCH_DEPENDENCY_PACKAGES "${FETCH_DEPENDENCY_PACKAGES}" PARENT_SCOPE)
+  endif()
 
   message(STATUS "Checking dependency ${FD_NAME} - done")
 endfunction()
