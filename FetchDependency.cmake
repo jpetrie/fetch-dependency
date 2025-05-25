@@ -120,10 +120,23 @@ function(fetch_dependency FD_NAME)
   endif()
 
   # Ensure the source directory exists and is up to date.
+  set(IsUpdateRequired TRUE)
   if(NOT IS_DIRECTORY "${SourceDirectory}")
     _fd_run(COMMAND git clone ${FD_GIT_REPOSITORY} "${SourceDirectory}")
+    set(IsUpdateRequired FALSE)
+  else()
+    # If the directory exists, before doing anything else, make sure the it is in a clean state. Any local changes are
+    # assumed to be intentional and prevent attempts to update.
+    _fd_run(COMMAND git status --porcelain WORKING_DIRECTORY "${SourceDirectory}" OUTPUT_VARIABLE GitStatus)
+    if(NOT "${GitStatus}" STREQUAL "")
+      set(IsUpdateRequired FALSE)
+      message(STATUS "Source has local changes; update suppressed (${SourceDirectory}).")
+    endif()
   endif()
-  _fd_run(COMMAND git -c advice.detachedHead=false checkout ${FD_GIT_TAG} WORKING_DIRECTORY "${SourceDirectory}")
+
+  if(IsUpdateRequired)
+    _fd_run(COMMAND git -c advice.detachedHead=false checkout ${FD_GIT_TAG} WORKING_DIRECTORY "${SourceDirectory}")
+  endif()
 
   if(NOT FD_FETCH_ONLY)
     if(NOT FastMode)
