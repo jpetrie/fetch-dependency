@@ -123,7 +123,6 @@ function(fetch_dependency FD_NAME)
   set(IsUpdateRequired TRUE)
   if(NOT IS_DIRECTORY "${SourceDirectory}")
     _fd_run(COMMAND git clone ${FD_GIT_REPOSITORY} "${SourceDirectory}")
-    set(IsUpdateRequired FALSE)
   else()
     # If the directory exists, before doing anything else, make sure the it is in a clean state. Any local changes are
     # assumed to be intentional and prevent attempts to update.
