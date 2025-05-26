@@ -98,11 +98,14 @@ function(fetch_dependency FD_NAME)
   endif()
 
   set(ProjectDirectory "${FD_ROOT}/${FD_NAME}")
+  set(StateDirectory "${ProjectDirectory}/State")
   set(SourceDirectory "${ProjectDirectory}/Source")
   set(BuildDirectory "${ProjectDirectory}/Build")
   set(PackageDirectory "${ProjectDirectory}/Package")
 
-  set(OptionsFilePath "${ProjectDirectory}/options.txt")
+  # The options file tracks the fetch_dependency() parameters that impact build or configuration in order to determine
+  # when a rebuild is required.
+  set(OptionsFilePath "${StateDirectory}/options.txt")
 
   # The manifest file contains the package directories of every dependency fetched for the calling project so far.
   set(ManifestFile "FetchedDependencies.txt")
@@ -132,19 +135,33 @@ function(fetch_dependency FD_NAME)
     endif()
   endif()
 
-  set(IsBuildNeeded FALSE)
-
+  set(BuildNeededMessage "")
   _fd_run(COMMAND git rev-parse HEAD^0 WORKING_DIRECTORY "${SourceDirectory}" OUTPUT_VARIABLE ExistingCommit)
   _fd_run(COMMAND git rev-parse ${FD_GIT_TAG}^0 WORKING_DIRECTORY "${SourceDirectory}" OUTPUT_VARIABLE RequiredCommit)
   if(NOT "${ExistingCommit}" STREQUAL "${RequiredCommit}")
     _fd_run(COMMAND git -c advice.detachedHead=false checkout ${FD_GIT_TAG} WORKING_DIRECTORY "${SourceDirectory}")
-    set(IsBuildNeeded TRUE)
+    set(BuildNeededMessage "versions differ")
   endif()
+
+  set(RequiredOptions "PACKAGE_NAME=${FD_PACKAGE_NAME}\nTOOLCHAIN=${CMAKE_TOOLCHAIN_FILE}\nCONFIGURATION=${FD_CONFIGURATION}\nCONFIGURE_OPTIONS=${FD_GENERATE_OPTIONS}\nBUILD_OPTIONS=${FD_BUILD_OPTIONS}\nCMAKELIST_SUBDIRECTORY=${FD_CMAKELIST_SUBDIRECTORY}\n")
+  string(STRIP "${RequiredOptions}" RequiredOptions)
+  if("${BuildNeededMessage}" STREQUAL "")
+    # Assume the options differ, and clear this string only if they actually match.
+    set(BuildNeededMessage "options differ")
+    if(EXISTS ${OptionsFilePath})
+      file(READ ${OptionsFilePath} ExistingOptions)
+      string(STRIP "${ExistingOptions}" ExistingOptions)
+      if("${ExistingOptions}" STREQUAL "${RequiredOptions}")
+        set(BuildNeededMessage "")
+      endif()
+    endif()
+  endif()
+  file(WRITE ${OptionsFilePath} "${RequiredOptions}\n")
 
   if(NOT FD_FETCH_ONLY)
     if(NOT FastMode)
-      if(IsBuildNeeded)
-        message(STATUS "Building (current and required revisions differ).")
+      if(NOT "${BuildNeededMessage}" STREQUAL "")
+        message(STATUS "Building (${BuildNeededMessage}).")
 
         list(APPEND ConfigureArguments "-DCMAKE_INSTALL_PREFIX=${PackageDirectory}")
         list(APPEND ConfigureArguments ${FD_GENERATE_OPTIONS})
