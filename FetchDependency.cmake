@@ -102,7 +102,6 @@ function(fetch_dependency FD_NAME)
   set(BuildDirectory "${ProjectDirectory}/Build")
   set(PackageDirectory "${ProjectDirectory}/Package")
 
-  set(CommitFilePath "${ProjectDirectory}/commit.txt")
   set(OptionsFilePath "${ProjectDirectory}/options.txt")
 
   # The manifest file contains the package directories of every dependency fetched for the calling project so far.
@@ -132,39 +131,51 @@ function(fetch_dependency FD_NAME)
       _fd_run(COMMAND git fetch --tags WORKING_DIRECTORY "${SourceDirectory}")
     endif()
   endif()
-  _fd_run(COMMAND git -c advice.detachedHead=false checkout ${FD_GIT_TAG} WORKING_DIRECTORY "${SourceDirectory}")
+
+  set(IsBuildNeeded FALSE)
+
+  _fd_run(COMMAND git rev-parse HEAD^0 WORKING_DIRECTORY "${SourceDirectory}" OUTPUT_VARIABLE ExistingCommit)
+  _fd_run(COMMAND git rev-parse ${FD_GIT_TAG}^0 WORKING_DIRECTORY "${SourceDirectory}" OUTPUT_VARIABLE RequiredCommit)
+  if(NOT "${ExistingCommit}" STREQUAL "${RequiredCommit}")
+    _fd_run(COMMAND git -c advice.detachedHead=false checkout ${FD_GIT_TAG} WORKING_DIRECTORY "${SourceDirectory}")
+    set(IsBuildNeeded TRUE)
+  endif()
 
   if(NOT FD_FETCH_ONLY)
     if(NOT FastMode)
-      list(APPEND ConfigureArguments "-DCMAKE_INSTALL_PREFIX=${PackageDirectory}")
-      list(APPEND ConfigureArguments ${FD_GENERATE_OPTIONS})
-      list(APPEND BuildArguments ${FD_BUILD_OPTIONS})
+      if(IsBuildNeeded)
+        message(STATUS "Building (current and required revisions differ).")
 
-      if(CMAKE_TOOLCHAIN_FILE)
-        string(APPEND ConfigureArguments " --toolchain ${CMAKE_TOOLCHAIN_FILE}")
+        list(APPEND ConfigureArguments "-DCMAKE_INSTALL_PREFIX=${PackageDirectory}")
+        list(APPEND ConfigureArguments ${FD_GENERATE_OPTIONS})
+        list(APPEND BuildArguments ${FD_BUILD_OPTIONS})
+
+        if(CMAKE_TOOLCHAIN_FILE)
+          string(APPEND ConfigureArguments " --toolchain ${CMAKE_TOOLCHAIN_FILE}")
+        endif()
+
+        # Configuration handling differs for single- versus multi-config generators.
+        get_property(IsMultiConfig GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
+        if(IsMultiConfig)
+          list(APPEND BuildArguments "--config ${FD_CONFIGURATION}")
+        else()
+          list(APPEND ConfigureArguments "-DCMAKE_BUILD_TYPE=${FD_CONFIGURATION}")
+        endif()
+
+        # When invoking CMake for the builds, the package paths are passed via the CMAKE_PREFIX_PATH environment variable.
+        # This avoids a warning that would otherwise be generated if the dependency never actually caused
+        # CMAKE_PREFIX_PATH to be referenced. Note that the platform path delimiter must be used to separate individual
+        # paths in the environment variable.
+        set(Packages ${FETCH_DEPENDENCY_PACKAGES})
+        if(UNIX)
+          string(REPLACE ";" ":" Packages "${Packages}")
+        endif()
+        set(ENV{CMAKE_PREFIX_PATH} ${Packages})
+
+        # Configure, build and install the dependency.
+        _fd_run(COMMAND "${CMAKE_COMMAND}" -G ${CMAKE_GENERATOR} -S "${SourceDirectory}/${FD_CMAKELIST_SUBDIRECTORY}" -B "${BuildDirectory}" ${ConfigureArguments})
+        _fd_run(COMMAND "${CMAKE_COMMAND}" --build "${BuildDirectory}" --target install ${BuildArguments})
       endif()
-
-      # Configuration handling differs for single- versus multi-config generators.
-      get_property(IsMultiConfig GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
-      if(IsMultiConfig)
-        list(APPEND BuildArguments "--config ${FD_CONFIGURATION}")
-      else()
-        list(APPEND ConfigureArguments "-DCMAKE_BUILD_TYPE=${FD_CONFIGURATION}")
-      endif()
-
-      # When invoking CMake for the builds, the package paths are passed via the CMAKE_PREFIX_PATH environment variable.
-      # This avoids a warning that would otherwise be generated if the dependency never actually caused
-      # CMAKE_PREFIX_PATH to be referenced. Note that the platform path delimiter must be used to separate individual
-      # paths in the environment variable.
-      set(Packages ${FETCH_DEPENDENCY_PACKAGES})
-      if(UNIX)
-        string(REPLACE ";" ":" Packages "${Packages}")
-      endif()
-      set(ENV{CMAKE_PREFIX_PATH} ${Packages})
-
-      # Configure, build and install the dependency.
-      _fd_run(COMMAND "${CMAKE_COMMAND}" -G ${CMAKE_GENERATOR} -S "${SourceDirectory}/${FD_CMAKELIST_SUBDIRECTORY}" -B "${BuildDirectory}" ${ConfigureArguments})
-      _fd_run(COMMAND "${CMAKE_COMMAND}" --build "${BuildDirectory}" --target install ${BuildArguments})
     endif()
 
     # Read the dependency's package manifest and find its dependencies. Finding these packages here ensures that if the
