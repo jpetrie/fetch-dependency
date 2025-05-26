@@ -127,7 +127,7 @@ function(fetch_dependency FD_NAME)
     # assumed to be intentional and prevent attempts to update.
     _fd_run(COMMAND git status --porcelain WORKING_DIRECTORY "${SourceDirectory}" OUTPUT_VARIABLE GitStatus)
     if(NOT "${GitStatus}" STREQUAL "")
-      message(STATUS "Source has local changes; update suppressed (${SourceDirectory}).")
+      message(AUTHOR_WARNING "Source has local changes; update suppressed (${SourceDirectory}).")
     else()
       _fd_run(COMMAND git fetch --tags WORKING_DIRECTORY "${SourceDirectory}")
     endif()
