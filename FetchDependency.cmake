@@ -6,7 +6,7 @@ if(${CMAKE_VERSION} VERSION_LESS ${FetchDependencyMinimumVersion})
 endif()
 
 function(_fd_run)
-  cmake_parse_arguments(FDR "" "WORKING_DIRECTORY;OUTPUT_VARIABLE" "COMMAND" ${ARGN})
+  cmake_parse_arguments(FDR "" "WORKING_DIRECTORY;OUTPUT_VARIABLE;ERROR_VARIABLE" "COMMAND" ${ARGN})
   if(NOT FDR_WORKING_DIRECTORY)
     set(FDR_WORKING_DIRECTORY "")
   endif()
@@ -23,7 +23,7 @@ function(_fd_run)
   execute_process(
     COMMAND ${FDR_COMMAND}
     OUTPUT_VARIABLE Output
-    ERROR_VARIABLE Output
+    ERROR_VARIABLE Error
     RESULT_VARIABLE Result
     WORKING_DIRECTORY "${FDR_WORKING_DIRECTORY}"
     OUTPUT_STRIP_TRAILING_WHITESPACE
@@ -34,7 +34,11 @@ function(_fd_run)
   )
 
   if(Result)
-    message(FATAL_ERROR "${Output}")
+    if(FDR_ERROR_VARIABLE)
+      set(${FDR_ERROR_VARIABLE} ${Error} PARENT_SCOPE)
+    else()
+      message(FATAL_ERROR "${Output}\n${Error}")
+    endif()
   endif()
 
   if(FDR_OUTPUT_VARIABLE)
@@ -98,14 +102,18 @@ function(fetch_dependency FD_NAME)
   endif()
 
   set(ProjectDirectory "${FD_ROOT}/${FD_NAME}")
-  set(ConfigureDirectory "${ProjectDirectory}/Configure")
+  set(StateDirectory "${ProjectDirectory}/State")
   set(SourceDirectory "${ProjectDirectory}/Source")
   set(BuildDirectory "${ProjectDirectory}/Build")
   set(PackageDirectory "${ProjectDirectory}/Package")
 
-  set(CommitFilePath "${ProjectDirectory}/commit.txt")
-  set(OptionsFilePath "${ProjectDirectory}/options.txt")
-  set(CallerFetchedFilePath "${CMAKE_BINARY_DIR}/FetchedDependencies.txt")
+  # The options file tracks the fetch_dependency() parameters that impact build or configuration in order to determine
+  # when a rebuild is required.
+  set(OptionsFilePath "${StateDirectory}/options.txt")
+
+  # The manifest file contains the package directories of every dependency fetched for the calling project so far.
+  set(ManifestFile "FetchedDependencies.txt")
+  set(ManifestFilePath "${CMAKE_BINARY_DIR}/${ManifestFile}")
 
   list(APPEND FETCH_DEPENDENCY_PACKAGES "${PackageDirectory}")
 
@@ -117,118 +125,126 @@ function(fetch_dependency FD_NAME)
     set(${FD_OUT_BINARY_DIR} "${BuildDirectory}" PARENT_SCOPE)
   endif()
 
-  if(NOT FastMode)
-    get_property(IsMultiConfig GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
-    set(ConfigurationBuildSnippet "")
-    set(ConfigurationGenerateSnippet "")
-    if(IsMultiConfig)
-      # Multi-configuration generators need to specify the configuration during the build step.
-      set(ConfigurationBuildSnippet "--config ${FD_CONFIGURATION}")
+  set(IsFetchRequired FALSE)
+
+  # Ensure the source directory exists and is up to date.
+  if(NOT IS_DIRECTORY "${SourceDirectory}")
+    _fd_run(COMMAND git clone ${FD_GIT_REPOSITORY} "${SourceDirectory}")
+  elseif(NOT FastMode)
+    # If the directory exists, before doing anything else, make sure the it is in a clean state. Any local changes are
+    # assumed to be intentional and prevent attempts to update.
+    _fd_run(COMMAND git status --porcelain WORKING_DIRECTORY "${SourceDirectory}" OUTPUT_VARIABLE GitStatus)
+    if(NOT "${GitStatus}" STREQUAL "")
+      message(AUTHOR_WARNING "Source has local changes; update suppressed (${SourceDirectory}).")
     else()
-      # Single-configuration generators can simply inject a value for CMAKE_BUILD_TYPE during configuration.
-      # Note that this variable is only actually used in the configure_file() template.
-      set(ConfigurationGenerateSnippet "-DCMAKE_BUILD_TYPE=${FD_CONFIGURATION}")
-    endif()
-
-    set(ToolchainSnippet "")
-    if (CMAKE_TOOLCHAIN_FILE)
-      set(ToolchainSnippet "--toolchain ${CMAKE_TOOLCHAIN_FILE}")
-    endif()
-
-    set(Options "${CMAKE_TOOLCHAIN_FILE}\n${FD_CONFIGURATION}\n${FD_GENERATE_OPTIONS}\n${FD_BUILD_OPTIONS}\n${FD_CMAKELIST_SUBDIRECTORY}")
-    string(STRIP "${Options}" Options)
-
-    set(PreviousCommit "n/a")
-    if(EXISTS ${CommitFilePath})
-      file(READ ${CommitFilePath} PreviousCommit)
-      string(STRIP "${PreviousCommit}" PreviousCommit)
-    endif()
-
-    configure_file(
-      "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/FetchDependencyProject.cmake.in"
-      "${ConfigureDirectory}/CMakeLists.txt"
-    )
-
-    # Pass the prefix paths via the CMAKE_PREFIX_PATH environment variable. This avoids a warning that would otherwise be
-    # generated if the dependency never actually caused CMAKE_PREFIX_PATH to be referenced.
-    set(ChildPaths ${FETCH_DEPENDENCY_PACKAGES})
-    if(UNIX)
-      # The platform path delimiter must be used for the environment variable.
-      string(REPLACE ";" ":" ChildPaths "${ChildPaths}")
-    endif()
-    set(ENV{CMAKE_PREFIX_PATH} ${ChildPaths})
-
-    # Configure the dependency and execute the update target to ensure the source exists and matches what was requested
-    # in GIT_TAG.
-    _fd_run(COMMAND "${CMAKE_COMMAND}" "${ToolchainSnippet}" -G ${CMAKE_GENERATOR} -S "${ConfigureDirectory}" -B "${BuildDirectory}")
-    _fd_run(COMMAND "${CMAKE_COMMAND}" --build "${BuildDirectory}" ${ConfigurationBuildSnippet} --target ${FD_NAME}-update)
-
-    if(NOT FD_FETCH_ONLY)
-      # Extract the commit.
-      _fd_run(
-        COMMAND git rev-parse HEAD
-        WORKING_DIRECTORY "${SourceDirectory}"
-        OUTPUT_VARIABLE CommitOutput
-      )
-
-      # If the current and requested commits differ, the build step needs to run.
-      set(PerformBuild NO)
-      message(VERBOSE "  This revision: ${CommitOutput}")
-      message(VERBOSE "  Last revision: ${PreviousCommit}")
-      if(NOT "${CommitOutput}" STREQUAL "${PreviousCommit}")
-        message(STATUS "  Building (revisions don't match)")
-        set(PerformBuild YES)
-      endif()
-
-      # If the current and requested options differ, the build step needs to run.
-      if(NOT PerformBuild)
-        if(EXISTS ${OptionsFilePath})
-          file(READ ${OptionsFilePath} PreviousOptions)
-          string(STRIP "${PreviousOptions}" PreviousOptions)
-          if(NOT "${Options}" STREQUAL "${PreviousOptions}")
-            message(STATUS "  Building (options don't match)")
-            set(PerformBuild YES)
-          endif()
+      # Determine what the required version refers to in order to decide if we need to fetch from the remote or not.
+      _fd_run(COMMAND git show-ref ${FD_GIT_TAG} WORKING_DIRECTORY "${SourceDirectory}" OUTPUT_VARIABLE ShowRefOutput ERROR_VARIABLE ShowRefError)
+      if(${ShowRefOutput} MATCHES "^[a-z0-9]+[ \\t]+refs/(remotes|tags)/")
+        # The version is a branch name (with remote) or a tag. The underlying commit can move, so a fetch is required.
+        set(IsFetchRequired TRUE)
+      elseif(${ShowRefOutput} MATCHES "^[a-z0-9]+[ \\t]+refs/heads/")
+        # The version is a branch name without a remote. We don't allow this; the remote name must be specified.
+        message(FATAL_ERROR "GIT_TAG must include a remote when referring to branch (e.g., 'origin/branch' instead of 'branch').")
+      else()
+        # The version is a commit hash. This is the ideal case, because if the current and required commits match we can
+        # skip the fetch entirely.
+        _fd_run(COMMAND git rev-parse HEAD^0 WORKING_DIRECTORY "${SourceDirectory}" OUTPUT_VARIABLE ExistingCommit)
+        _fd_run(COMMAND git rev-parse ${FD_GIT_TAG}^0 WORKING_DIRECTORY "${SourceDirectory}" OUTPUT_VARIABLE RequiredCommit ERROR_VARIABLE RevParseError)
+        if(NOT "${ExistingCommit}" STREQUAL "${RequiredCommit}")
+          # They don't match, so we have to fetch.
+          set(IsFetchRequired TRUE)
         endif()
       endif()
 
-      if(PerformBuild)
-        _fd_run(COMMAND "${CMAKE_COMMAND}" --build "${BuildDirectory}" ${ConfigurationBuildSnippet} ${FD_BUILD_OPTIONS})
+      if(IsFetchRequired)
+        _fd_run(COMMAND git fetch --tags WORKING_DIRECTORY "${SourceDirectory}")
       endif()
     endif()
   endif()
 
+  set(BuildNeededMessage "")
+  _fd_run(COMMAND git rev-parse HEAD^0 WORKING_DIRECTORY "${SourceDirectory}" OUTPUT_VARIABLE ExistingCommit)
+  _fd_run(COMMAND git rev-parse ${FD_GIT_TAG}^0 WORKING_DIRECTORY "${SourceDirectory}" OUTPUT_VARIABLE RequiredCommit)
+  if(NOT "${ExistingCommit}" STREQUAL "${RequiredCommit}")
+    _fd_run(COMMAND git -c advice.detachedHead=false checkout ${FD_GIT_TAG} WORKING_DIRECTORY "${SourceDirectory}")
+    set(BuildNeededMessage "versions differ")
+  endif()
+
+  set(RequiredOptions "PACKAGE_NAME=${FD_PACKAGE_NAME}\nTOOLCHAIN=${CMAKE_TOOLCHAIN_FILE}\nCONFIGURATION=${FD_CONFIGURATION}\nCONFIGURE_OPTIONS=${FD_GENERATE_OPTIONS}\nBUILD_OPTIONS=${FD_BUILD_OPTIONS}\nCMAKELIST_SUBDIRECTORY=${FD_CMAKELIST_SUBDIRECTORY}\n")
+  string(STRIP "${RequiredOptions}" RequiredOptions)
+  if("${BuildNeededMessage}" STREQUAL "")
+    # Assume the options differ, and clear this string only if they actually match.
+    set(BuildNeededMessage "options differ")
+    if(EXISTS ${OptionsFilePath})
+      file(READ ${OptionsFilePath} ExistingOptions)
+      string(STRIP "${ExistingOptions}" ExistingOptions)
+      if("${ExistingOptions}" STREQUAL "${RequiredOptions}")
+        set(BuildNeededMessage "")
+      endif()
+    endif()
+  endif()
+  file(WRITE ${OptionsFilePath} "${RequiredOptions}\n")
+
   if(NOT FD_FETCH_ONLY)
-    # Read the local package cache for the dependency, if it exists.
-    #
-    # Finding these packages here ensures that if the dependency includes them in its link interface, they'll be loaded
-    # in the calling project when it needs to actually link with this dependency.
-    set(LocalPackagesFilePath "${BuildDirectory}/${FD_NAME}-prefix/src/${FD_NAME}-build/FetchedDependencies.txt")
-    if(EXISTS "${LocalPackagesFilePath}")
-      file(STRINGS "${LocalPackagesFilePath}" LocalPackages)
-      foreach(LocalPackage ${LocalPackages})
-        string(REGEX REPLACE "/Package$" "" LocalName "${LocalPackage}")
-        cmake_path(GET LocalName FILENAME LocalName)
+    if(NOT FastMode)
+      if(NOT "${BuildNeededMessage}" STREQUAL "")
+        message(STATUS "Building (${BuildNeededMessage}).")
+
+        list(APPEND ConfigureArguments "-DCMAKE_INSTALL_PREFIX=${PackageDirectory}")
+        list(APPEND ConfigureArguments ${FD_GENERATE_OPTIONS})
+        list(APPEND BuildArguments ${FD_BUILD_OPTIONS})
+
+        if(CMAKE_TOOLCHAIN_FILE)
+          string(APPEND ConfigureArguments " --toolchain ${CMAKE_TOOLCHAIN_FILE}")
+        endif()
+
+        # Configuration handling differs for single- versus multi-config generators.
+        get_property(IsMultiConfig GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
+        if(IsMultiConfig)
+          list(APPEND BuildArguments "--config ${FD_CONFIGURATION}")
+        else()
+          list(APPEND ConfigureArguments "-DCMAKE_BUILD_TYPE=${FD_CONFIGURATION}")
+        endif()
+
+        # When invoking CMake for the builds, the package paths are passed via the CMAKE_PREFIX_PATH environment variable.
+        # This avoids a warning that would otherwise be generated if the dependency never actually caused
+        # CMAKE_PREFIX_PATH to be referenced. Note that the platform path delimiter must be used to separate individual
+        # paths in the environment variable.
+        set(Packages ${FETCH_DEPENDENCY_PACKAGES})
+        if(UNIX)
+          string(REPLACE ";" ":" Packages "${Packages}")
+        endif()
+        set(ENV{CMAKE_PREFIX_PATH} ${Packages})
+
+        # Configure, build and install the dependency.
+        _fd_run(COMMAND "${CMAKE_COMMAND}" -G ${CMAKE_GENERATOR} -S "${SourceDirectory}/${FD_CMAKELIST_SUBDIRECTORY}" -B "${BuildDirectory}" ${ConfigureArguments})
+        _fd_run(COMMAND "${CMAKE_COMMAND}" --build "${BuildDirectory}" --target install ${BuildArguments})
+      endif()
+    endif()
+
+    # Read the dependency's package manifest and find its dependencies. Finding these packages here ensures that if the
+    # dependency includes them in its link interface, they'll be loaded in the calling project when it needs to actually
+    # link with this dependency.
+    set(DependencyManifestFilePath "${BuildDirectory}/${ManifestFile}")
+    if(EXISTS "${DependencyManifestFilePath}")
+      file(STRINGS "${DependencyManifestFilePath}" DependencyPackages)
+      foreach(DependencyPackage ${DependencyPackages})
+        string(REGEX REPLACE "/Package$" "" PackageName "${DependencyPackage}")
+        cmake_path(GET PackageName FILENAME PackageName)
 
         # Use the current set of package paths when finding the dependency; this is necessary to ensure that the any
         # dependencies of the dependency that use direct find_package() calls that were satisfied by an earlier call to
         # fetch_dependency() will find those dependencies.
-        _fd_find(${LocalName} ROOT ${LocalPackage} PATHS ${LocalPackages} ${FETCH_DEPENDENCY_PACKAGES})
+        _fd_find(${PackageName} ROOT ${DependencyPackage} PATHS ${DependencyPackages} ${FETCH_DEPENDENCY_PACKAGES})
       endforeach()
     endif()
-  endif()
 
-  # Write the cache files.
-  file(WRITE ${OptionsFilePath} "${Options}\n")
-  file(WRITE ${CommitFilePath} "${CommitOutput}\n")
+    # Write the most up-to-date package manifest so that anything downstream of the calling project will know where its
+    # dependencies were written to.
+    string(REPLACE ";" "\n" ManifestContent "${FETCH_DEPENDENCY_PACKAGES}")
+    file(WRITE ${ManifestFilePath} "${ManifestContent}\n")
 
-  if(NOT FD_FETCH_ONLY)
-    # Write the most up-to-date list of packages fetched so that anything downstream of the calling project will know
-    # where its dependencies were written to.
-    string(REPLACE ";" "\n" CallerFetchedFileLines "${FETCH_DEPENDENCY_PACKAGES}")
-    file(WRITE ${CallerFetchedFilePath} "${CallerFetchedFileLines}\n")
-
-    _fd_find(${FD_PACKAGE_NAME} ROOT ${PackageDirectory} PATHS ${LocalPackages} ${FETCH_DEPENDENCY_PACKAGES})
+    _fd_find(${FD_PACKAGE_NAME} ROOT ${PackageDirectory} PATHS ${DependencyPackages} ${FETCH_DEPENDENCY_PACKAGES})
 
     # Propagate the updated package directory list.
     set(FETCH_DEPENDENCY_PACKAGES "${FETCH_DEPENDENCY_PACKAGES}" PARENT_SCOPE)

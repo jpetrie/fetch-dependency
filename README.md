@@ -91,8 +91,9 @@ Options:
   where the repository will be cloned.
 
 - `GIT_TAG <tag>` Git branch name, tag or commit hash. A commit hash is the recommended means of specifying a dependency
-   version. Branches and tags should generally be specified as remote names to ensure the local clone will be correctly
-   updated in the event of a tag move, branch rebase, or history rewrite.
+   version. Branches must be specified with their name to ensure they are correctly updated. Specifying a commit hash is
+   recommended because it can allow the `git fetch` operation to be avoided during configure when the local copy is
+   already on the specified tag.
 
 - `FETCH_ONLY` Download the dependency, but do not build or install it. This is useful for dependencies where only the
    source is needed. Note that this will still _configure_ the dependency (this is required to enable updates if
