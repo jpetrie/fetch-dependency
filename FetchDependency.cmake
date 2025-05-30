@@ -37,7 +37,7 @@ function(_fd_run)
     if(FDR_ERROR_VARIABLE)
       set(${FDR_ERROR_VARIABLE} ${Error} PARENT_SCOPE)
     else()
-      message(FATAL_ERROR "${Error}")
+      message(FATAL_ERROR "${Output}\n${Error}")
     endif()
   endif()
 
