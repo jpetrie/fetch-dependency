@@ -6,7 +6,7 @@ if(${CMAKE_VERSION} VERSION_LESS ${FetchDependencyMinimumVersion})
 endif()
 
 function(_fd_run)
-  cmake_parse_arguments(FDR "" "WORKING_DIRECTORY;OUTPUT_VARIABLE" "COMMAND" ${ARGN})
+  cmake_parse_arguments(FDR "" "WORKING_DIRECTORY;OUTPUT_VARIABLE;ERROR_VARIABLE" "COMMAND" ${ARGN})
   if(NOT FDR_WORKING_DIRECTORY)
     set(FDR_WORKING_DIRECTORY "")
   endif()
@@ -23,7 +23,7 @@ function(_fd_run)
   execute_process(
     COMMAND ${FDR_COMMAND}
     OUTPUT_VARIABLE Output
-    ERROR_VARIABLE Output
+    ERROR_VARIABLE Error
     RESULT_VARIABLE Result
     WORKING_DIRECTORY "${FDR_WORKING_DIRECTORY}"
     OUTPUT_STRIP_TRAILING_WHITESPACE
@@ -34,7 +34,11 @@ function(_fd_run)
   )
 
   if(Result)
-    message(FATAL_ERROR "${Output}")
+    if(FDR_ERROR_VARIABLE)
+      set(${FDR_ERROR_VARIABLE} ${Error} PARENT_SCOPE)
+    else()
+      message(FATAL_ERROR "${Error}")
+    endif()
   endif()
 
   if(FDR_OUTPUT_VARIABLE)
@@ -121,17 +125,40 @@ function(fetch_dependency FD_NAME)
     set(${FD_OUT_BINARY_DIR} "${BuildDirectory}" PARENT_SCOPE)
   endif()
 
+  set(IsFetchRequired FALSE)
+
   # Ensure the source directory exists and is up to date.
   if(NOT IS_DIRECTORY "${SourceDirectory}")
     _fd_run(COMMAND git clone ${FD_GIT_REPOSITORY} "${SourceDirectory}")
-  else()
+  elseif(NOT FastMode)
     # If the directory exists, before doing anything else, make sure the it is in a clean state. Any local changes are
     # assumed to be intentional and prevent attempts to update.
     _fd_run(COMMAND git status --porcelain WORKING_DIRECTORY "${SourceDirectory}" OUTPUT_VARIABLE GitStatus)
     if(NOT "${GitStatus}" STREQUAL "")
       message(AUTHOR_WARNING "Source has local changes; update suppressed (${SourceDirectory}).")
     else()
-      _fd_run(COMMAND git fetch --tags WORKING_DIRECTORY "${SourceDirectory}")
+      # Determine what the required version refers to in order to decide if we need to fetch from the remote or not.
+      _fd_run(COMMAND git show-ref ${FD_GIT_TAG} WORKING_DIRECTORY "${SourceDirectory}" OUTPUT_VARIABLE ShowRefOutput ERROR_VARIABLE ShowRefError)
+      if(${ShowRefOutput} MATCHES "^[a-z0-9]+[ \\t]+refs/(remotes|tags)/")
+        # The version is a branch name (with remote) or a tag. The underlying commit can move, so a fetch is required.
+        set(IsFetchRequired TRUE)
+      elseif(${ShowRefOutput} MATCHES "^[a-z0-9]+[ \\t]+refs/heads/")
+        # The version is a branch name without a remote. We don't allow this; the remote name must be specified.
+        message(FATAL_ERROR "GIT_TAG must include a remote when referring to branch (e.g., 'origin/branch' instead of 'branch').")
+      else()
+        # The version is a commit hash. This is the ideal case, because if the current and required commits match we can
+        # skip the fetch entirely.
+        _fd_run(COMMAND git rev-parse HEAD^0 WORKING_DIRECTORY "${SourceDirectory}" OUTPUT_VARIABLE ExistingCommit)
+        _fd_run(COMMAND git rev-parse ${FD_GIT_TAG}^0 WORKING_DIRECTORY "${SourceDirectory}" OUTPUT_VARIABLE RequiredCommit ERROR_VARIABLE RevParseError)
+        if(NOT "${ExistingCommit}" STREQUAL "${RequiredCommit}")
+          # They don't match, so we have to fetch.
+          set(IsFetchRequired TRUE)
+        endif()
+      endif()
+
+      if(IsFetchRequired)
+        _fd_run(COMMAND git fetch --tags WORKING_DIRECTORY "${SourceDirectory}")
+      endif()
     endif()
   endif()
 
