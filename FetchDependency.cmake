@@ -5,6 +5,11 @@ if(${CMAKE_VERSION} VERSION_LESS ${FetchDependencyMinimumVersion})
   message(FATAL_ERROR "FetchDependency requires CMake ${FetchDependencyMinimumVersion} (currently using ${CMAKE_VERSION}).")
 endif()
 
+set(FetchDependencyMajorVersion "0")
+set(FetchDependencyMinorVersion "0")
+set(FetchDependencyPatchVersion "0")
+set(FetchDependencyVersion "${FetchDependencyMajorVersion}.${FetchDependencyMinorVersion}.${FetchDependencyPatchVersion}")
+
 function(_fd_run)
   cmake_parse_arguments(FDR "" "WORKING_DIRECTORY;OUTPUT_VARIABLE;ERROR_VARIABLE" "COMMAND" ${ARGN})
   if(NOT FDR_WORKING_DIRECTORY)
@@ -107,6 +112,9 @@ function(fetch_dependency FD_NAME)
   set(BuildDirectory "${ProjectDirectory}/Build")
   set(PackageDirectory "${ProjectDirectory}/Package")
 
+  # The version file tracks the version of FetchDependency that last processed the dependency.
+  set(VersionFilePath "${StateDirectory}/version.txt")
+  
   # The options file tracks the fetch_dependency() parameters that impact build or configuration in order to determine
   # when a rebuild is required.
   set(OptionsFilePath "${StateDirectory}/options.txt")
@@ -125,9 +133,31 @@ function(fetch_dependency FD_NAME)
     set(${FD_OUT_BINARY_DIR} "${BuildDirectory}" PARENT_SCOPE)
   endif()
 
-  set(IsFetchRequired FALSE)
+  set(BuildNeededMessage "")
+
+  # Check the version stamp. If this dependency was last processed with a version of FetchDependency with a different
+  # major or minor version, the binary and package directories should be erased so that the dependency is rebuilt from
+  # a clean state. This doesn't affect the source directory.
+  if(EXISTS ${VersionFilePath})
+    file(READ ${VersionFilePath} LastVersion)
+    string(REGEX MATCH "^([0-9]+)\\.([0-9]+)\\.([0-9]+)" LastVersionMatch ${LastVersion})
+
+    # Match 0 is the full match, 1-3 are the sub-matches for the major, minor and patch components.
+    if(NOT ("${CMAKE_MATCH_1}" STREQUAL "${FetchDependencyMajorVersion}" AND "${CMAKE_MATCH_2}" STREQUAL "${FetchDependencyMinorVersion}"))
+      message(STATUS "Clearing build cache (last built with ${LastVersionMatch}, now on ${FetchDependencyVersion}).")
+
+      message(VERBOSE "Removing directory ${BuildDirectory}")
+      file(REMOVE_RECURSE "${BuildDirectory}")
+
+      message(VERBOSE "Removing directory ${PackageDirectory}")
+      file(REMOVE_RECURSE "${PackageDirectory}")
+
+      set(BuildNeededMessage "cache cleared")
+    endif()
+  endif()
 
   # Ensure the source directory exists and is up to date.
+  set(IsFetchRequired FALSE)
   if(NOT IS_DIRECTORY "${SourceDirectory}")
     _fd_run(COMMAND git clone ${FD_GIT_REPOSITORY} "${SourceDirectory}")
   elseif(NOT FastMode)
@@ -162,12 +192,13 @@ function(fetch_dependency FD_NAME)
     endif()
   endif()
 
-  set(BuildNeededMessage "")
-  _fd_run(COMMAND git rev-parse HEAD^0 WORKING_DIRECTORY "${SourceDirectory}" OUTPUT_VARIABLE ExistingCommit)
-  _fd_run(COMMAND git rev-parse ${FD_GIT_TAG}^0 WORKING_DIRECTORY "${SourceDirectory}" OUTPUT_VARIABLE RequiredCommit)
-  if(NOT "${ExistingCommit}" STREQUAL "${RequiredCommit}")
-    _fd_run(COMMAND git -c advice.detachedHead=false checkout ${FD_GIT_TAG} WORKING_DIRECTORY "${SourceDirectory}")
-    set(BuildNeededMessage "versions differ")
+  if(NOT BuildNeededMessage)
+    _fd_run(COMMAND git rev-parse HEAD^0 WORKING_DIRECTORY "${SourceDirectory}" OUTPUT_VARIABLE ExistingCommit)
+    _fd_run(COMMAND git rev-parse ${FD_GIT_TAG}^0 WORKING_DIRECTORY "${SourceDirectory}" OUTPUT_VARIABLE RequiredCommit)
+    if(NOT "${ExistingCommit}" STREQUAL "${RequiredCommit}")
+      _fd_run(COMMAND git -c advice.detachedHead=false checkout ${FD_GIT_TAG} WORKING_DIRECTORY "${SourceDirectory}")
+      set(BuildNeededMessage "versions differ")
+    endif()
   endif()
 
   set(RequiredOptions "PACKAGE_NAME=${FD_PACKAGE_NAME}\nTOOLCHAIN=${CMAKE_TOOLCHAIN_FILE}\nCONFIGURATION=${FD_CONFIGURATION}\nCONFIGURE_OPTIONS=${FD_GENERATE_OPTIONS}\nBUILD_OPTIONS=${FD_BUILD_OPTIONS}\nCMAKELIST_SUBDIRECTORY=${FD_CMAKELIST_SUBDIRECTORY}\n")
@@ -249,6 +280,9 @@ function(fetch_dependency FD_NAME)
     # Propagate the updated package directory list.
     set(FETCH_DEPENDENCY_PACKAGES "${FETCH_DEPENDENCY_PACKAGES}" PARENT_SCOPE)
   endif()
+
+  # The dependency was fully-processed, so stamp it with the current FetchDependency version.
+  file(WRITE ${VersionFilePath} "${FetchDependencyVersion}")
 
   message(STATUS "Checking dependency ${FD_NAME} - done")
 endfunction()
