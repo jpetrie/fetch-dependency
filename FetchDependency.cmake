@@ -7,11 +7,11 @@ endif()
 
 set(FetchDependencyMajorVersion "0")
 set(FetchDependencyMinorVersion "0")
-set(FetchDependencyPatchVersion "2")
+set(FetchDependencyPatchVersion "3")
 set(FetchDependencyVersion "${FetchDependencyMajorVersion}.${FetchDependencyMinorVersion}.${FetchDependencyPatchVersion}")
 
 function(_fd_run)
-  cmake_parse_arguments(FDR "" "WORKING_DIRECTORY;OUTPUT_VARIABLE;ERROR_VARIABLE" "COMMAND" ${ARGN})
+  cmake_parse_arguments(FDR "" "WORKING_DIRECTORY;OUT_COMMAND;OUTPUT_VARIABLE;ERROR_VARIABLE" "COMMAND" ${ARGN})
   if(NOT FDR_WORKING_DIRECTORY)
     set(FDR_WORKING_DIRECTORY "")
   endif()
@@ -37,6 +37,11 @@ function(_fd_run)
     ${EchoOutput}
     ${EchoError}
   )
+
+  if(FDR_OUT_COMMAND)
+    string(JOIN " " OutputCommand ${FDR_COMMAND})
+    set(${FDR_OUT_COMMAND} ${OutputCommand} PARENT_SCOPE)
+  endif()
 
   if(Result)
     if(FDR_ERROR_VARIABLE)
@@ -137,6 +142,18 @@ function(fetch_dependency FD_NAME)
   # The options file tracks the fetch_dependency() parameters that impact build or configuration in order to determine
   # when a rebuild is required.
   set(OptionsFilePath "${StateDirectory}/options.txt")
+
+  # The configure and build script files track the commands executed for the given step.
+  set(StepScriptFilePath "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Steps/step.in")
+  if(UNIX)
+    set(StepScriptHeader "#!/bin/sh")
+    set(ConfigureScriptFilePath "${StateDirectory}/configure.sh")
+    set(BuildScriptFilePath "${StateDirectory}/build.sh")
+  else()
+    set(StepScriptHeader "@echo off")
+    set(ConfigureScriptFilePath "${StateDirectory}/configure.bat")
+    set(BuildScriptFilePath "${StateDirectory}/build.bat")
+  endif()
 
   # The manifest file contains the package directories of every dependency fetched for the calling project so far.
   set(ManifestFile "FetchedDependencies.txt")
@@ -274,8 +291,25 @@ function(fetch_dependency FD_NAME)
         set(ENV{CMAKE_PREFIX_PATH} ${Packages})
 
         # Configure, build and install the dependency.
-        _fd_run(COMMAND "${CMAKE_COMMAND}" -G ${CMAKE_GENERATOR} -S "${SourceDirectory}/${FD_CMAKELIST_SUBDIRECTORY}" -B "${BuildDirectory}" ${ConfigureArguments})
-        _fd_run(COMMAND "${CMAKE_COMMAND}" --build "${BuildDirectory}" --target install ${BuildArguments})
+        _fd_run(
+          COMMAND "${CMAKE_COMMAND}" -G ${CMAKE_GENERATOR} -S "${SourceDirectory}/${FD_CMAKELIST_SUBDIRECTORY}" -B "${BuildDirectory}" ${ConfigureArguments}
+          OUT_COMMAND StepCommand
+        )
+        configure_file(
+          "${StepScriptFilePath}"
+          "${ConfigureScriptFilePath}"
+          FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE WORLD_READ
+        )
+
+        _fd_run(
+          COMMAND "${CMAKE_COMMAND}" --build "${BuildDirectory}" --target install ${BuildArguments}
+          OUT_COMMAND StepCommand
+        )
+        configure_file(
+          "${StepScriptFilePath}"
+          "${BuildScriptFilePath}"
+          FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE WORLD_READ
+        )
       endif()
     endif()
 

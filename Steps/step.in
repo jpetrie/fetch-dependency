@@ -1,0 +1,5 @@
+${StepScriptHeader}
+
+set CMAKE_PREFIX_PATH=${Packages}
+${StepCommand}
+
