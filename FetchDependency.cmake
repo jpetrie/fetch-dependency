@@ -7,7 +7,7 @@ endif()
 
 set(FetchDependencyMajorVersion "0")
 set(FetchDependencyMinorVersion "0")
-set(FetchDependencyPatchVersion "3")
+set(FetchDependencyPatchVersion "4")
 set(FetchDependencyVersion "${FetchDependencyMajorVersion}.${FetchDependencyMinorVersion}.${FetchDependencyPatchVersion}")
 
 function(_fd_run)
@@ -216,7 +216,7 @@ function(fetch_dependency FD_NAME)
     # Ensure the source directory exists and is up to date.
     set(IsFetchRequired FALSE)
     if(NOT IS_DIRECTORY "${SourceDirectory}")
-      _fd_run(COMMAND git clone ${FD_GIT_REPOSITORY} "${SourceDirectory}")
+      _fd_run(COMMAND git clone --recurse-submodules ${FD_GIT_REPOSITORY} "${SourceDirectory}")
     elseif(NOT FastMode)
       # If the directory exists, before doing anything else, make sure the it is in a clean state. Any local changes are
       # assumed to be intentional and prevent attempts to update.
@@ -245,6 +245,7 @@ function(fetch_dependency FD_NAME)
 
         if(IsFetchRequired)
           _fd_run(COMMAND git fetch --tags WORKING_DIRECTORY "${SourceDirectory}")
+          _fd_run(COMMAND git submodule update --remote WORKING_DIRECTORY "${SourceDirectory}")
         endif()
       endif()
     endif()
