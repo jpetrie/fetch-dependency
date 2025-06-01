@@ -68,6 +68,7 @@ Download, build and locally install a dependency named `<name>` during configura
 ```cmake
   fetch_dependency(
     <name>
+    LOCAL_SOURCE <path>
     GIT_REPOSITORY <url>
     GIT_TAG <tag>
     [FETCH_ONLY]
@@ -86,14 +87,18 @@ Download, build and locally install a dependency named `<name>` during configura
 `PACKAGE_NAME` is provided (see below), it will also be used in the internal `find_package()` call to locate the
 dependency's targets.
 
+One of `LOCAL_SOURCE` or `GIT_REPOSITORY` are required, and they are mutually exclusive.
+
 Options:
+- `LOCAL_SOURCE <path>` Path to the source of the dependency on the local file system.
+
 - `GIT_REPOSITORY <url>` URL of the Git repository. See the documentation for the `ROOT` parameter below for detail on
   where the repository will be cloned.
 
 - `GIT_TAG <tag>` Git branch name, tag or commit hash. A commit hash is the recommended means of specifying a dependency
    version. Branches must be specified with their name to ensure they are correctly updated. Specifying a commit hash is
    recommended because it can allow the `git fetch` operation to be avoided during configure when the local copy is
-   already on the specified tag.
+   already on the specified tag. This option is required when `GIT_REPOSITORY` is specified.
 
 - `FETCH_ONLY` Download the dependency, but do not build or install it. This is useful for dependencies where only the
    source is needed. Note that this will still _configure_ the dependency (this is required to enable updates if
@@ -102,6 +107,7 @@ Options:
 - `ROOT <path>` The root storage directory for the dependency. If not specified, the value of the global
   `FETCH_DEPENDENCY_DEFAULT_ROOT` will be used. If `FETCH_DEPENDENCY_DEFAULT_ROOT` is not defined, the value "External"
   will be used. In all cases, if the root is a relative path, it will be interpreted as relative to `CMAKE_BINARY_DIR`.
+  This parameter is ignored when the `LOCAL_SOURCE` option is used.
 
 - `PACKAGE_NAME <package>` Pass `<package>` to `find_package()` internally when locating the built dependency's
    targets. If not specified, the value of `<name>` will be used.
