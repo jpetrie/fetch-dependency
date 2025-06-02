@@ -7,7 +7,7 @@ endif()
 
 set(FetchDependencyMajorVersion "0")
 set(FetchDependencyMinorVersion "1")
-set(FetchDependencyPatchVersion "0")
+set(FetchDependencyPatchVersion "1")
 set(FetchDependencyVersion "${FetchDependencyMajorVersion}.${FetchDependencyMinorVersion}.${FetchDependencyPatchVersion}")
 
 function(_fd_run)
@@ -289,7 +289,7 @@ function(fetch_dependency FD_NAME)
         if(UNIX)
           string(REPLACE ";" ":" Packages "${Packages}")
         endif()
-        set(ENV{CMAKE_PREFIX_PATH} ${Packages})
+        set(ENV{CMAKE_PREFIX_PATH} "${Packages}")
 
         # Configure, build and install the dependency.
         _fd_run(
