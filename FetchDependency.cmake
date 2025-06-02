@@ -6,8 +6,8 @@ if(${CMAKE_VERSION} VERSION_LESS ${FetchDependencyMinimumVersion})
 endif()
 
 set(FetchDependencyMajorVersion "0")
-set(FetchDependencyMinorVersion "0")
-set(FetchDependencyPatchVersion "5")
+set(FetchDependencyMinorVersion "1")
+set(FetchDependencyPatchVersion "0")
 set(FetchDependencyVersion "${FetchDependencyMajorVersion}.${FetchDependencyMinorVersion}.${FetchDependencyPatchVersion}")
 
 function(_fd_run)
@@ -295,6 +295,7 @@ function(fetch_dependency FD_NAME)
         _fd_run(
           COMMAND "${CMAKE_COMMAND}" -G ${CMAKE_GENERATOR} -S "${SourceDirectory}/${FD_CMAKELIST_SUBDIRECTORY}" -B "${BuildDirectory}" ${ConfigureArguments}
           OUT_COMMAND StepCommand
+          ERROR_VARIABLE ErrorLog
         )
         configure_file(
           "${StepScriptFilePath}"
@@ -302,15 +303,26 @@ function(fetch_dependency FD_NAME)
           FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE WORLD_READ
         )
 
+        if(ErrorLog)
+          file(REMOVE "${OptionsFilePath}")
+          message(FATAL_ERROR "Configure failed:\n${ErrorLog}")
+        endif()
+
         _fd_run(
           COMMAND "${CMAKE_COMMAND}" --build "${BuildDirectory}" --target install ${BuildArguments}
           OUT_COMMAND StepCommand
+          ERROR_VARIABLE ErrorLog
         )
         configure_file(
           "${StepScriptFilePath}"
           "${BuildScriptFilePath}"
           FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE WORLD_READ
         )
+
+        if(ErrorLog)
+          file(REMOVE "${OptionsFilePath}")
+          message(FATAL_ERROR "Build failed:\n${ErrorLog}")
+        endif()
       endif()
     endif()
 
