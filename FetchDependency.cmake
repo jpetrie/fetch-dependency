@@ -11,7 +11,7 @@ set(FetchDependencyPatchVersion "1")
 set(FetchDependencyVersion "${FetchDependencyMajorVersion}.${FetchDependencyMinorVersion}.${FetchDependencyPatchVersion}")
 
 function(_fd_run)
-  cmake_parse_arguments(FDR "" "WORKING_DIRECTORY;OUT_COMMAND;OUTPUT_VARIABLE;ERROR_VARIABLE" "COMMAND" ${ARGN})
+  cmake_parse_arguments(FDR "" "WORKING_DIRECTORY;OUT_COMMAND;OUTPUT_VARIABLE;ERROR_VARIABLE;ERROR_CONTEXT" "COMMAND" ${ARGN})
   if(NOT FDR_WORKING_DIRECTORY)
     set(FDR_WORKING_DIRECTORY "")
   endif()
@@ -47,7 +47,7 @@ function(_fd_run)
     if(FDR_ERROR_VARIABLE)
       set(${FDR_ERROR_VARIABLE} ${Error} PARENT_SCOPE)
     else()
-      message(FATAL_ERROR "${Output}\n${Error}")
+      message(FATAL_ERROR "${FDR_ERROR_CONTEXT}${Output}\n${Error}")
     endif()
   endif()
 
@@ -210,7 +210,6 @@ function(fetch_dependency FD_NAME)
       endif()
     endif()
   endif()
-  file(WRITE ${OptionsFilePath} "${RequiredOptions}\n")
 
   if("${SourceMode}" STREQUAL "git")
     # Ensure the source directory exists and is up to date.
@@ -295,7 +294,7 @@ function(fetch_dependency FD_NAME)
         _fd_run(
           COMMAND "${CMAKE_COMMAND}" -G ${CMAKE_GENERATOR} -S "${SourceDirectory}/${FD_CMAKELIST_SUBDIRECTORY}" -B "${BuildDirectory}" ${ConfigureArguments}
           OUT_COMMAND StepCommand
-          ERROR_VARIABLE ErrorLog
+          ERROR_CONTEXT "Configure failed: "
         )
         configure_file(
           "${StepScriptFilePath}"
@@ -303,26 +302,16 @@ function(fetch_dependency FD_NAME)
           FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE WORLD_READ
         )
 
-        if(ErrorLog)
-          file(REMOVE "${OptionsFilePath}")
-          message(FATAL_ERROR "Configure failed:\n${ErrorLog}")
-        endif()
-
         _fd_run(
           COMMAND "${CMAKE_COMMAND}" --build "${BuildDirectory}" --target install ${BuildArguments}
           OUT_COMMAND StepCommand
-          ERROR_VARIABLE ErrorLog
+          ERROR_CONTEXT "Build failed: "
         )
         configure_file(
           "${StepScriptFilePath}"
           "${BuildScriptFilePath}"
           FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE WORLD_READ
         )
-
-        if(ErrorLog)
-          file(REMOVE "${OptionsFilePath}")
-          message(FATAL_ERROR "Build failed:\n${ErrorLog}")
-        endif()
       endif()
     endif()
 
@@ -343,6 +332,8 @@ function(fetch_dependency FD_NAME)
       endforeach()
     endif()
 
+    # Write the options file now that we know it has succeeded in configuring.
+    file(WRITE ${OptionsFilePath} "${RequiredOptions}\n")
     # Write the most up-to-date package manifest so that anything downstream of the calling project will know where its
     # dependencies were written to.
     string(REPLACE ";" "\n" ManifestContent "${FETCH_DEPENDENCY_PACKAGES}")
