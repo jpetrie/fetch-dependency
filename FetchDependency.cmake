@@ -269,7 +269,7 @@ function(fetch_dependency FD_NAME)
         list(APPEND BuildArguments ${FD_BUILD_OPTIONS})
 
         if(CMAKE_TOOLCHAIN_FILE)
-          string(APPEND ConfigureArguments " --toolchain ${CMAKE_TOOLCHAIN_FILE}")
+          list(APPEND ConfigureArguments " --toolchain ${CMAKE_TOOLCHAIN_FILE}")
         endif()
 
         # Configuration handling differs for single- versus multi-config generators.
