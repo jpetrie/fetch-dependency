@@ -6,8 +6,8 @@ if(${CMAKE_VERSION} VERSION_LESS ${FetchDependencyMinimumVersion})
 endif()
 
 set(FetchDependencyMajorVersion "0")
-set(FetchDependencyMinorVersion "1")
-set(FetchDependencyPatchVersion "1")
+set(FetchDependencyMinorVersion "2")
+set(FetchDependencyPatchVersion "0")
 set(FetchDependencyVersion "${FetchDependencyMajorVersion}.${FetchDependencyMinorVersion}.${FetchDependencyPatchVersion}")
 
 function(_fd_run)
@@ -292,24 +292,13 @@ function(fetch_dependency FD_NAME)
         set(ENV{CMAKE_PREFIX_PATH} "${Packages}")
 
         # Configure, build and install the dependency.
-        _fd_run(
-          COMMAND "${CMAKE_COMMAND}" -G ${CMAKE_GENERATOR} -S "${SourceDirectory}/${FD_CMAKELIST_SUBDIRECTORY}" -B "${BuildDirectory}" ${ConfigureArguments}
-          OUT_COMMAND StepCommand
-          ERROR_CONTEXT "Configure failed: "
-        )
-
         string(REPLACE ";" " " SpacedConfigureArguments "${ConfigureArguments}")
         configure_file(
           "${ConfigureScriptTemplateFilePath}"
           "${ConfigureScriptFilePath}"
           FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE WORLD_READ
         )
-
-        _fd_run(
-          COMMAND "${CMAKE_COMMAND}" --build "${BuildDirectory}" --target install ${BuildArguments}
-          OUT_COMMAND StepCommand
-          ERROR_CONTEXT "Build failed: "
-        )
+        _fd_run(COMMAND "${ConfigureScriptFilePath}" ERROR_CONTEXT "Configure failed: ")
 
         string(REPLACE ";" " " SpacedBuildArguments "${BuildArguments}")
         configure_file(
@@ -317,6 +306,8 @@ function(fetch_dependency FD_NAME)
           "${BuildScriptFilePath}"
           FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE WORLD_READ
         )
+        _fd_run(COMMAND "${BuildScriptFilePath}" ERROR_CONTEXT "Build failed: ")
+
       endif()
     endif()
 
