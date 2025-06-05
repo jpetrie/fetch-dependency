@@ -11,7 +11,7 @@ set(FetchDependencyPatchVersion "0")
 set(FetchDependencyVersion "${FetchDependencyMajorVersion}.${FetchDependencyMinorVersion}.${FetchDependencyPatchVersion}")
 
 function(_fd_run)
-  cmake_parse_arguments(FDR "" "WORKING_DIRECTORY;OUT_COMMAND;OUTPUT_VARIABLE;ERROR_VARIABLE;ERROR_CONTEXT" "COMMAND" ${ARGN})
+  cmake_parse_arguments(FDR "" "WORKING_DIRECTORY;OUTPUT_VARIABLE;ERROR_VARIABLE;ERROR_CONTEXT" "COMMAND" ${ARGN})
   if(NOT FDR_WORKING_DIRECTORY)
     set(FDR_WORKING_DIRECTORY "")
   endif()
@@ -37,11 +37,6 @@ function(_fd_run)
     ${EchoOutput}
     ${EchoError}
   )
-
-  if(FDR_OUT_COMMAND)
-    string(JOIN " " OutputCommand ${FDR_COMMAND})
-    set(${FDR_OUT_COMMAND} ${OutputCommand} PARENT_SCOPE)
-  endif()
 
   if(Result)
     if(FDR_ERROR_VARIABLE)
