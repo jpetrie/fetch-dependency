@@ -1,0 +1,5 @@
+${StepScriptHeader}
+
+set CMAKE_PREFIX_PATH=${Packages}
+"${CMAKE_COMMAND}" -G "${CMAKE_GENERATOR}" -S "${SourceDirectory}/${FD_CMAKELIST_SUBDIRECTORY}" -B "${BuildDirectory}" ${SpacedConfigureArguments}
+

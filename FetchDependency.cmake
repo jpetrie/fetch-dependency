@@ -144,7 +144,8 @@ function(fetch_dependency FD_NAME)
   set(OptionsFilePath "${StateDirectory}/options.txt")
 
   # The configure and build script files track the commands executed for the given step.
-  set(StepScriptFilePath "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Steps/step.in")
+  set(ConfigureScriptTemplateFilePath "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Steps/configure.in")
+  set(BuildScriptTemplateFilePath "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Steps/build.in")
   if(UNIX)
     set(StepScriptHeader "#!/bin/sh")
     set(ConfigureScriptFilePath "${StateDirectory}/configure.sh")
@@ -296,8 +297,10 @@ function(fetch_dependency FD_NAME)
           OUT_COMMAND StepCommand
           ERROR_CONTEXT "Configure failed: "
         )
+
+        string(REPLACE ";" " " SpacedConfigureArguments "${ConfigureArguments}")
         configure_file(
-          "${StepScriptFilePath}"
+          "${ConfigureScriptTemplateFilePath}"
           "${ConfigureScriptFilePath}"
           FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE WORLD_READ
         )
@@ -307,8 +310,10 @@ function(fetch_dependency FD_NAME)
           OUT_COMMAND StepCommand
           ERROR_CONTEXT "Build failed: "
         )
+
+        string(REPLACE ";" " " SpacedBuildArguments "${BuildArguments}")
         configure_file(
-          "${StepScriptFilePath}"
+          "${BuildScriptTemplateFilePath}"
           "${BuildScriptFilePath}"
           FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE WORLD_READ
         )
