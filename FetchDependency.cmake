@@ -7,7 +7,7 @@ endif()
 
 set(FetchDependencyMajorVersion "0")
 set(FetchDependencyMinorVersion "3")
-set(FetchDependencyPatchVersion "2")
+set(FetchDependencyPatchVersion "3")
 set(FetchDependencyVersion "${FetchDependencyMajorVersion}.${FetchDependencyMinorVersion}.${FetchDependencyPatchVersion}")
 
 function(_fd_run)
@@ -78,10 +78,32 @@ endfunction()
 function(fetch_dependency FD_NAME)
   cmake_parse_arguments(FD
     "FETCH_ONLY"
-    "ROOT;GIT_REPOSITORY;GIT_TAG;LOCAL_SOURCE;PACKAGE_NAME;CONFIGURATION;CMAKELIST_SUBDIRECTORY;OUT_SOURCE_DIR;OUT_BINARY_DIR"
-    "GENERATE_OPTIONS;BUILD_OPTIONS"
+    "ROOT;GIT_REPOSITORY;GIT_SOURCE;GIT_TAG;LOCAL_SOURCE;VERSION;PACKAGE_NAME;CONFIGURATION;CMAKELIST_SUBDIRECTORY;OUT_SOURCE_DIR;OUT_BINARY_DIR"
+    "GENERATE_OPTIONS;CONFIGURE_OPTIONS;BUILD_OPTIONS"
     ${ARGN}
   )
+
+  # Handle deprecated parameters.
+  if(FD_GIT_REPOSITORY)
+    message(AUTHOR_WARNING "GIT_REPOSITORY is deprecated; use GIT_SOURCE instead. The value of the deprecated parameter will be copied to the correct parameter unless the latter is explicitly set. The deprecated parameter will be removed in a future version.")
+    if(NOT FD_GIT_SOURCE)
+      set(FD_GIT_SOURCE ${FD_GIT_REPOSITORY})
+    endif()
+  endif()
+
+  if(FD_GIT_TAG)
+    message(AUTHOR_WARNING "GIT_TAG is deprecated; use VERSION instead. The value of the deprecated parameter will be copied to the correct parameter unless the latter is explicitly set. The deprecated parameter will be removed in a future version.")
+    if(NOT FD_VERSION)
+      set(FD_VERSION ${FD_GIT_TAG})
+    endif()
+  endif()
+
+  if(FD_GENERATE_OPTIONS)
+    message(AUTHOR_WARNING "GENERATE_OPTIONS is deprecated; use CONFIGURE_OPTIONS instead. The value of the deprecated parameter will be copied to the correct parameter unless the latter is explicitly set. The deprecated parameter will be removed in a future version.")
+    if(NOT FD_CONFIGURE_OPTIONS)
+      set(FD_CONFIGURE_OPTIONS ${FD_GENERATE_OPTIONS})
+    endif()
+  endif()
 
   if($ENV{FETCH_DEPENDENCY_FAST})
     set(FastMode ON)
@@ -94,23 +116,23 @@ function(fetch_dependency FD_NAME)
   # Process the source arguments.
   set(SourceMode "")
   if(FD_LOCAL_SOURCE)
-    if(FD_GIT_REPOSITORY)
-      message(AUTHOR_WARNING "LOCAL_SOURCE and GIT_REPOSITORY are mutually exlusive; LOCAL_SOURCE will be used.")
+    if(FD_GIT_SOURCE)
+      message(AUTHOR_WARNING "LOCAL_SOURCE and GIT_SOURCE are mutually exlusive; LOCAL_SOURCE will be used.")
     endif()
 
-    if(FD_GIT_TAG)
-      message(AUTHOR_WARNING "GIT_TAG is ignored when LOCAL_SOURCE is provided.")
+    if(FD_VERSION)
+      message(AUTHOR_WARNING "VERSION is ignored when LOCAL_SOURCE is provided.")
     endif()
 
     set(SourceMode "local")
-  elseif(FD_GIT_REPOSITORY)
-    if(NOT FD_GIT_TAG)
-      message(FATAL_ERROR "GIT_TAG must be provided.")
+  elseif(FD_GIT_SOURCE)
+    if(NOT FD_VERSION)
+      message(FATAL_ERROR "VERSION must be provided.")
     endif()
 
     set(SourceMode "git")
   else()
-    message(FATAL_ERROR "One of LOCAL_SOURCE or GIT_REPOSITORY must be provided.")
+    message(FATAL_ERROR "One of LOCAL_SOURCE or GIT_SOURCE must be provided.")
   endif()
 
   if(NOT FD_PACKAGE_NAME)
@@ -210,7 +232,7 @@ function(fetch_dependency FD_NAME)
     # Ensure the source directory exists and is up to date.
     set(IsFetchRequired FALSE)
     if(NOT IS_DIRECTORY "${SourceDirectory}")
-      _fd_run(COMMAND git clone --recurse-submodules ${FD_GIT_REPOSITORY} "${SourceDirectory}")
+      _fd_run(COMMAND git clone --recurse-submodules ${FD_GIT_SOURCE} "${SourceDirectory}")
     elseif(NOT FastMode)
       # If the directory exists, before doing anything else, make sure the it is in a clean state. Any local changes are
       # assumed to be intentional and prevent attempts to update.
@@ -219,18 +241,18 @@ function(fetch_dependency FD_NAME)
         message(AUTHOR_WARNING "Source has local changes; update suppressed (${SourceDirectory}).")
       else()
         # Determine what the required version refers to in order to decide if we need to fetch from the remote or not.
-        _fd_run(COMMAND git show-ref ${FD_GIT_TAG} WORKING_DIRECTORY "${SourceDirectory}" OUT_STDOUT ShowRefOutput OUT_STDERR DiscardedError)
+        _fd_run(COMMAND git show-ref ${FD_VERSION} WORKING_DIRECTORY "${SourceDirectory}" OUT_STDOUT ShowRefOutput OUT_STDERR DiscardedError)
         if(${ShowRefOutput} MATCHES "^[a-z0-9]+[ \\t]+refs/(remotes|tags)/")
           # The version is a branch name (with remote) or a tag. The underlying commit can move, so a fetch is required.
           set(IsFetchRequired TRUE)
         elseif(${ShowRefOutput} MATCHES "^[a-z0-9]+[ \\t]+refs/heads/")
           # The version is a branch name without a remote. We don't allow this; the remote name must be specified.
-          message(FATAL_ERROR "GIT_TAG must include a remote when referring to branch (e.g., 'origin/branch' instead of 'branch').")
+          message(FATAL_ERROR "VERSION must include a remote when referring to branch (e.g., 'origin/branch' instead of 'branch').")
         else()
           # The version is a commit hash. This is the ideal case, because if the current and required commits match we can
           # skip the fetch entirely.
           _fd_run(COMMAND git rev-parse HEAD^0 WORKING_DIRECTORY "${SourceDirectory}" OUT_STDOUT ExistingCommit)
-          _fd_run(COMMAND git rev-parse ${FD_GIT_TAG}^0 WORKING_DIRECTORY "${SourceDirectory}" OUT_STDOUT RequiredCommit OUT_STDERR RevParseError)
+          _fd_run(COMMAND git rev-parse ${FD_VERSION}^0 WORKING_DIRECTORY "${SourceDirectory}" OUT_STDOUT RequiredCommit OUT_STDERR RevParseError)
           if(NOT "${ExistingCommit}" STREQUAL "${RequiredCommit}")
             # They don't match, so we have to fetch.
             set(IsFetchRequired TRUE)
@@ -245,9 +267,9 @@ function(fetch_dependency FD_NAME)
     endif()
 
     _fd_run(COMMAND git rev-parse HEAD^0 WORKING_DIRECTORY "${SourceDirectory}" OUT_STDOUT ExistingCommit)
-    _fd_run(COMMAND git rev-parse ${FD_GIT_TAG}^0 WORKING_DIRECTORY "${SourceDirectory}" OUT_STDOUT RequiredCommit)
+    _fd_run(COMMAND git rev-parse ${FD_VERSION}^0 WORKING_DIRECTORY "${SourceDirectory}" OUT_STDOUT RequiredCommit)
     if(NOT "${ExistingCommit}" STREQUAL "${RequiredCommit}")
-      _fd_run(COMMAND git -c advice.detachedHead=false checkout --recurse-submodules ${FD_GIT_TAG} WORKING_DIRECTORY "${SourceDirectory}")
+      _fd_run(COMMAND git -c advice.detachedHead=false checkout --recurse-submodules ${FD_VERSION} WORKING_DIRECTORY "${SourceDirectory}")
       set(BuildNeededMessage "versions differ")
     endif()
   elseif("${SourceMode}" STREQUAL "local")
@@ -257,7 +279,7 @@ function(fetch_dependency FD_NAME)
   if(NOT FD_FETCH_ONLY)
     if(NOT FastMode)
       list(APPEND ConfigureArguments "-DCMAKE_INSTALL_PREFIX=${PackageDirectory}")
-      list(APPEND ConfigureArguments ${FD_GENERATE_OPTIONS})
+      list(APPEND ConfigureArguments ${FD_CONFIGURE_OPTIONS})
       list(APPEND BuildArguments ${FD_BUILD_OPTIONS})
 
       if(CMAKE_TOOLCHAIN_FILE)

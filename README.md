@@ -49,7 +49,7 @@ FetchDependency to a specific commit ID via `GIT_TAG` when installing.
 FetchDependency provides a single function, `fetch_dependency()`, which will fetch and find a dependency package:
 
 ```cmake
-  fetch_dependency(Catch2 GIT_REPOSITORY https://github.com/catchorg/Catch2.git GIT_TAG v2.13.8)
+  fetch_dependency(Catch2 GIT_SOURCE https://github.com/catchorg/Catch2.git VERSION v2.13.8)
 ```
 
 This will fetch, configure, build and install [Catch2](https://github.com/catchorg/Catch2) within the calling project's
@@ -69,13 +69,13 @@ Download, build and locally install a dependency named `<name>` during configura
   fetch_dependency(
     <name>
     LOCAL_SOURCE <path>
-    GIT_REPOSITORY <url>
-    GIT_TAG <tag>
+    GIT_SOURCE <url>
+    [VERSION <version>]
     [FETCH_ONLY]
     [ROOT <path>]
     [PACKAGE_NAME <package>]
     [CONFIGURATION <configuration>]
-    [GENERATE_OPTIONS <options...>]
+    [CONFIGURE_OPTIONS <options...>]
     [BUILD_OPTIONS <options...>]
     [CMAKELIST_SUBDIRECTORY <path>]
     [OUT_SOURCE_DIR <out-var>]
@@ -87,22 +87,23 @@ Download, build and locally install a dependency named `<name>` during configura
 `PACKAGE_NAME` is provided (see below), it will also be used in the internal `find_package()` call to locate the
 dependency's targets.
 
-One of `LOCAL_SOURCE` or `GIT_REPOSITORY` are required, and they are mutually exclusive.
+One of `LOCAL_SOURCE` or `GIT_SOURCE` are required, and they are mutually exclusive.
 
 Options:
 - `LOCAL_SOURCE <path>` Path to the source of the dependency on the local file system.
 
-- `GIT_REPOSITORY <url>` URL of the Git repository. See the documentation for the `ROOT` parameter below for detail on
+- `GIT_SOURCE <url>` URL of the Git repository. See the documentation for the `ROOT` parameter below for detail on
   where the repository will be cloned.
 
-- `GIT_TAG <tag>` Git branch name, tag or commit hash. A commit hash is the recommended means of specifying a dependency
-   version. Branches must be specified with their name to ensure they are correctly updated. Specifying a commit hash is
-   recommended because it can allow the `git fetch` operation to be avoided during configure when the local copy is
-   already on the specified tag. This option is required when `GIT_REPOSITORY` is specified.
+- `VERSION <version>` Version string associated with the source. For local sources, this is unused and shouldn't be
+   provided. For Git sources, this is a Git branch name, tag or commit hash. A commit hash is the recommended means of
+   specifying a dependency version. Branches must be specified with their name to ensure they are correctly updated.
+   Specifying a commit hash is recommended because it can allow the `git fetch` operation to be avoided during configure
+   when the local copy is already on the specified tag. This option is required when `GIT_SOURCE` is specified.
 
 - `FETCH_ONLY` Download the dependency, but do not build or install it. This is useful for dependencies where only the
    source is needed. Note that this will still _configure_ the dependency (this is required to enable updates if
-   `GIT_TAG` is changed, due to how `fetch_dependency()` is implemented).
+   `VERSION` is changed, due to how `fetch_dependency()` is implemented).
 
 - `ROOT <path>` The root storage directory for the dependency. If not specified, the value of the global
   `FETCH_DEPENDENCY_DEFAULT_ROOT` will be used. If `FETCH_DEPENDENCY_DEFAULT_ROOT` is not defined, the value "External"
@@ -116,7 +117,7 @@ Options:
    configuration via this option will work correctly regardless of whether or not the generator in use is a single-
    or multi-configuration generator. If not specified, "Release" is assumed.
 
-- `GENERATE_OPTIONS <options...>` Pass the following options to CMake when generating the dependency.
+- `CONFIGURE_OPTIONS <options...>` Pass the following options to CMake when generating the dependency.
 
 - `BUILD_OPTIONS <options...>` Pass the following options to CMake's `--build` command when building the dependency.
 
