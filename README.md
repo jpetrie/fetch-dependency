@@ -163,7 +163,9 @@ your OS.
 
 When FetchDependency detects a local change to a dependency's source (either because `LOCAL_SOURCE` is in use, or
 because the Git working tree is dirty), it will never attempt to perform any updates to the source and it will always
-attempt to trigger the build step. 
+attempt to trigger the build step. Note that there is no link created between dependency source files and any targets
+in your main project, so simply building that may not detect local changes to a dependency - you will need to explicitly
+run CMake against your main project, or use the per-dependency scripts within their state folder.
 
 Keep in mind that if you are using `GIT_SOURCE` for your dependency, the dependency's working tree is very likely in a
 "detached HEAD" state (confirm with `git status`). If that is true and you want to commit any local edits you make, you
