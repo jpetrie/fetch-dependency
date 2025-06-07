@@ -7,24 +7,23 @@ endif()
 
 set(FetchDependencyMajorVersion "0")
 set(FetchDependencyMinorVersion "3")
-set(FetchDependencyPatchVersion "1")
+set(FetchDependencyPatchVersion "2")
 set(FetchDependencyVersion "${FetchDependencyMajorVersion}.${FetchDependencyMinorVersion}.${FetchDependencyPatchVersion}")
 
 function(_fd_run)
-  cmake_parse_arguments(FDR "" "WORKING_DIRECTORY;OUTPUT_VARIABLE;ERROR_VARIABLE;ERROR_CONTEXT" "COMMAND" ${ARGN})
+  cmake_parse_arguments(FDR "" "WORKING_DIRECTORY;ERROR_CONTEXT;OUT_STDOUT;OUT_STDERR" "COMMAND" ${ARGN})
   if(NOT FDR_WORKING_DIRECTORY)
     set(FDR_WORKING_DIRECTORY "")
   endif()
 
   cmake_language(GET_MESSAGE_LOG_LEVEL Level)
   if((${Level} STREQUAL "VERBOSE") OR (${Level} STREQUAL "DEBUG") OR (${Level} STREQUAL "TRACE"))
-    set(EchoCommand "STDOUT")
     set(EchoOutput "ECHO_OUTPUT_VARIABLE")
     set(EchoError "ECHO_ERROR_VARIABLE")
-  else()
-    set(EchoCommand "NONE")
   endif()
 
+  string(REPLACE ";" " " Command "${FDR_COMMAND}")
+  message(VERBOSE ">> ${Command}")
   execute_process(
     COMMAND ${FDR_COMMAND}
     OUTPUT_VARIABLE Output
@@ -33,21 +32,20 @@ function(_fd_run)
     WORKING_DIRECTORY "${FDR_WORKING_DIRECTORY}"
     OUTPUT_STRIP_TRAILING_WHITESPACE
     ERROR_STRIP_TRAILING_WHITESPACE
-    COMMAND_ECHO ${EchoCommand}
     ${EchoOutput}
     ${EchoError}
   )
 
   if(Result)
-    if(FDR_ERROR_VARIABLE)
-      set(${FDR_ERROR_VARIABLE} ${Error} PARENT_SCOPE)
+    if(FDR_OUT_STDERR)
+      set(${FDR_OUT_STDERR} ${Error} PARENT_SCOPE)
     else()
       message(FATAL_ERROR "${FDR_ERROR_CONTEXT} (${Result})\n${Output}\n${Error}")
     endif()
   endif()
 
-  if(FDR_OUTPUT_VARIABLE)
-    set(${FDR_OUTPUT_VARIABLE} ${Output} PARENT_SCOPE)
+  if(FDR_OUT_STDOUT)
+    set(${FDR_OUT_STDOUT} ${Output} PARENT_SCOPE)
   endif()
 endfunction()
 
@@ -216,12 +214,12 @@ function(fetch_dependency FD_NAME)
     elseif(NOT FastMode)
       # If the directory exists, before doing anything else, make sure the it is in a clean state. Any local changes are
       # assumed to be intentional and prevent attempts to update.
-      _fd_run(COMMAND git status --porcelain WORKING_DIRECTORY "${SourceDirectory}" OUTPUT_VARIABLE GitStatus)
+      _fd_run(COMMAND git status --porcelain WORKING_DIRECTORY "${SourceDirectory}" OUT_STDOUT GitStatus)
       if(NOT "${GitStatus}" STREQUAL "")
         message(AUTHOR_WARNING "Source has local changes; update suppressed (${SourceDirectory}).")
       else()
         # Determine what the required version refers to in order to decide if we need to fetch from the remote or not.
-        _fd_run(COMMAND git show-ref ${FD_GIT_TAG} WORKING_DIRECTORY "${SourceDirectory}" OUTPUT_VARIABLE ShowRefOutput ERROR_VARIABLE ShowRefError)
+        _fd_run(COMMAND git show-ref ${FD_GIT_TAG} WORKING_DIRECTORY "${SourceDirectory}" OUT_STDOUT ShowRefOutput OUT_STDERR DiscardedError)
         if(${ShowRefOutput} MATCHES "^[a-z0-9]+[ \\t]+refs/(remotes|tags)/")
           # The version is a branch name (with remote) or a tag. The underlying commit can move, so a fetch is required.
           set(IsFetchRequired TRUE)
@@ -231,8 +229,8 @@ function(fetch_dependency FD_NAME)
         else()
           # The version is a commit hash. This is the ideal case, because if the current and required commits match we can
           # skip the fetch entirely.
-          _fd_run(COMMAND git rev-parse HEAD^0 WORKING_DIRECTORY "${SourceDirectory}" OUTPUT_VARIABLE ExistingCommit)
-          _fd_run(COMMAND git rev-parse ${FD_GIT_TAG}^0 WORKING_DIRECTORY "${SourceDirectory}" OUTPUT_VARIABLE RequiredCommit ERROR_VARIABLE RevParseError)
+          _fd_run(COMMAND git rev-parse HEAD^0 WORKING_DIRECTORY "${SourceDirectory}" OUT_STDOUT ExistingCommit)
+          _fd_run(COMMAND git rev-parse ${FD_GIT_TAG}^0 WORKING_DIRECTORY "${SourceDirectory}" OUT_STDOUT RequiredCommit OUT_STDERR RevParseError)
           if(NOT "${ExistingCommit}" STREQUAL "${RequiredCommit}")
             # They don't match, so we have to fetch.
             set(IsFetchRequired TRUE)
@@ -246,8 +244,8 @@ function(fetch_dependency FD_NAME)
       endif()
     endif()
 
-    _fd_run(COMMAND git rev-parse HEAD^0 WORKING_DIRECTORY "${SourceDirectory}" OUTPUT_VARIABLE ExistingCommit)
-    _fd_run(COMMAND git rev-parse ${FD_GIT_TAG}^0 WORKING_DIRECTORY "${SourceDirectory}" OUTPUT_VARIABLE RequiredCommit)
+    _fd_run(COMMAND git rev-parse HEAD^0 WORKING_DIRECTORY "${SourceDirectory}" OUT_STDOUT ExistingCommit)
+    _fd_run(COMMAND git rev-parse ${FD_GIT_TAG}^0 WORKING_DIRECTORY "${SourceDirectory}" OUT_STDOUT RequiredCommit)
     if(NOT "${ExistingCommit}" STREQUAL "${RequiredCommit}")
       _fd_run(COMMAND git -c advice.detachedHead=false checkout --recurse-submodules ${FD_GIT_TAG} WORKING_DIRECTORY "${SourceDirectory}")
       set(BuildNeededMessage "versions differ")
