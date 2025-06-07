@@ -7,7 +7,7 @@ endif()
 
 set(FetchDependencyMajorVersion "0")
 set(FetchDependencyMinorVersion "3")
-set(FetchDependencyPatchVersion "0")
+set(FetchDependencyPatchVersion "1")
 set(FetchDependencyVersion "${FetchDependencyMajorVersion}.${FetchDependencyMinorVersion}.${FetchDependencyPatchVersion}")
 
 function(_fd_run)
@@ -307,8 +307,11 @@ function(fetch_dependency FD_NAME)
 
       if(NOT "${BuildNeededMessage}" STREQUAL "")
         message(STATUS "Building (${BuildNeededMessage}).")
-        _fd_run(COMMAND "${ConfigureScriptFilePath}" ERROR_CONTEXT "Configure failed: ")
-        file(WRITE "${ConfigureScriptHashFilePath}" ${ConfigureScriptHash})
+        if(IsConfigureNeeded)
+          _fd_run(COMMAND "${ConfigureScriptFilePath}" ERROR_CONTEXT "Configure failed: ")
+          file(WRITE "${ConfigureScriptHashFilePath}" ${ConfigureScriptHash})
+        endif()
+
         _fd_run(COMMAND "${BuildScriptFilePath}" ERROR_CONTEXT "Build failed: ")
         file(WRITE "${BuildScriptHashFilePath}" ${BuildScriptHash})
       endif()
