@@ -6,7 +6,7 @@ if(${CMAKE_VERSION} VERSION_LESS ${FetchDependencyMinimumVersion})
 endif()
 
 set(FetchDependencyMajorVersion "0")
-set(FetchDependencyMinorVersion "2")
+set(FetchDependencyMinorVersion "3")
 set(FetchDependencyPatchVersion "0")
 set(FetchDependencyVersion "${FetchDependencyMajorVersion}.${FetchDependencyMinorVersion}.${FetchDependencyPatchVersion}")
 
@@ -42,12 +42,31 @@ function(_fd_run)
     if(FDR_ERROR_VARIABLE)
       set(${FDR_ERROR_VARIABLE} ${Error} PARENT_SCOPE)
     else()
-      message(FATAL_ERROR "${FDR_ERROR_CONTEXT}${Output}\n${Error}")
+      message(FATAL_ERROR "${FDR_ERROR_CONTEXT} (${Result})\n${Output}\n${Error}")
     endif()
   endif()
 
   if(FDR_OUTPUT_VARIABLE)
     set(${FDR_OUTPUT_VARIABLE} ${Output} PARENT_SCOPE)
+  endif()
+endfunction()
+
+# This function computes the hash of the given script and compares it to the previous hash stored in the hash file.
+# If they match, the result hash is empty because the step does not need to re-run. If they differ, the result hash is
+# the hash of the script (which must be re-run).
+function(_fd_check_step FDCS_SCRIPT_FILE FDCS_HASH_FILE FDCS_RESULT FDCS_RESULT_HASH)
+  file(MD5 "${FDCS_SCRIPT_FILE}" CurrentHash)
+
+  set(PreviousHash "")
+  if(EXISTS "${FDCS_HASH_FILE}")
+    file(READ "${FDCS_HASH_FILE}" PreviousHash)
+  endif()
+
+  set(${FDCS_RESULT_HASH} "${CurrentHash}" PARENT_SCOPE)
+  if("${CurrentHash}" STREQUAL "${PreviousHash}")
+    set(${FDCS_RESULT} FALSE PARENT_SCOPE)
+  else()
+    set(${FDCS_RESULT} TRUE PARENT_SCOPE)
   endif()
 endfunction()
 
@@ -114,12 +133,12 @@ function(fetch_dependency FD_NAME)
   if(IsRootRelative)
     cmake_path(APPEND CMAKE_BINARY_DIR ${FD_ROOT} OUTPUT_VARIABLE FD_ROOT)
   endif()
-  message(VERBOSE "  Using root: ${FD_ROOT}")
+  message(VERBOSE "Using root: ${FD_ROOT}")
 
   if(NOT FD_CONFIGURATION)
     set(FD_CONFIGURATION "Release")
   endif()
-
+  
   set(ProjectDirectory "${FD_ROOT}/${FD_NAME}")
   if("${SourceMode}" STREQUAL "local")
     set(SourceDirectory "${FD_LOCAL_SOURCE}")
@@ -134,26 +153,27 @@ function(fetch_dependency FD_NAME)
   # The version file tracks the version of FetchDependency that last processed the dependency.
   set(VersionFilePath "${StateDirectory}/version.txt")
   
-  # The options file tracks the fetch_dependency() parameters that impact build or configuration in order to determine
-  # when a rebuild is required.
-  set(OptionsFilePath "${StateDirectory}/options.txt")
-
-  # The configure and build script files track the commands executed for the given step.
-  set(ConfigureScriptTemplateFilePath "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Steps/configure.in")
-  set(BuildScriptTemplateFilePath "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Steps/build.in")
-  if(UNIX)
-    set(StepScriptHeader "#!/bin/sh")
-    set(ConfigureScriptFilePath "${StateDirectory}/configure.sh")
-    set(BuildScriptFilePath "${StateDirectory}/build.sh")
-  else()
-    set(StepScriptHeader "@echo off")
-    set(ConfigureScriptFilePath "${StateDirectory}/configure.bat")
-    set(BuildScriptFilePath "${StateDirectory}/build.bat")
-  endif()
-
   # The manifest file contains the package directories of every dependency fetched for the calling project so far.
   set(ManifestFile "FetchedDependencies.txt")
   set(ManifestFilePath "${CMAKE_BINARY_DIR}/${ManifestFile}")
+
+  if(UNIX)
+    set(ScriptHeader "#!/bin/sh")
+    set(ScriptSet "export")
+    set(ScriptExtension "sh")
+  else()
+    set(ScriptHeader "@echo off")
+    set(ScriptSet "set")
+    set(ScriptExtension "bat")
+  endif()
+
+  set(ConfigureScriptTemplateFilePath "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Steps/configure.in")
+  set(ConfigureScriptFilePath "${StateDirectory}/configure.${ScriptExtension}")
+  set(ConfigureScriptHashFilePath "${StateDirectory}/last-configure.txt")
+
+  set(BuildScriptTemplateFilePath "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Steps/build.in")
+  set(BuildScriptFilePath "${StateDirectory}/build.${ScriptExtension}")
+  set(BuildScriptHashFilePath "${StateDirectory}/last-build.txt")
 
   list(APPEND FETCH_DEPENDENCY_PACKAGES "${PackageDirectory}")
 
@@ -176,34 +196,16 @@ function(fetch_dependency FD_NAME)
 
     # Match 0 is the full match, 1-3 are the sub-matches for the major, minor and patch components.
     if(NOT ("${CMAKE_MATCH_1}" STREQUAL "${FetchDependencyMajorVersion}" AND "${CMAKE_MATCH_2}" STREQUAL "${FetchDependencyMinorVersion}"))
-      message(STATUS "Clearing build cache (last built with ${LastVersionMatch}, now on ${FetchDependencyVersion}).")
-
       message(VERBOSE "Removing directory ${BuildDirectory}")
       file(REMOVE_RECURSE "${BuildDirectory}")
 
       message(VERBOSE "Removing directory ${PackageDirectory}")
       file(REMOVE_RECURSE "${PackageDirectory}")
 
-      set(BuildNeededMessage "FetchDependency version changed")
-    endif()
-  endif()
+      message(VERBOSE "Removing directory ${StateDirectory}")
+      file(REMOVE_RECURSE "${StateDirectory}")
 
-  set(RequiredOptions "LOCAL_SOURCE=${FD_LOCAL_SOURCE}\nGIT_REPOSITORY=${FD_GIT_REPOSITORY}\nGIT_TAG=${FD_GIT_TAG}\nPACKAGE_NAME=${FD_PACKAGE_NAME}\nTOOLCHAIN=${CMAKE_TOOLCHAIN_FILE}\nCONFIGURATION=${FD_CONFIGURATION}\nCONFIGURE_OPTIONS=${FD_GENERATE_OPTIONS}\nBUILD_OPTIONS=${FD_BUILD_OPTIONS}\nCMAKELIST_SUBDIRECTORY=${FD_CMAKELIST_SUBDIRECTORY}\n")
-  string(STRIP "${RequiredOptions}" RequiredOptions)
-  if("${BuildNeededMessage}" STREQUAL "")
-    # Assume the options differ, and clear this string only if they actually match.
-    set(BuildNeededMessage "options differ")
-    if(EXISTS ${OptionsFilePath})
-      file(READ ${OptionsFilePath} ExistingOptions)
-      string(STRIP "${ExistingOptions}" ExistingOptions)
-      if("${ExistingOptions}" STREQUAL "${RequiredOptions}")
-        set(BuildNeededMessage "")
-      else()
-        message(VERBOSE "Removing directory ${BuildDirectory}")
-        file(REMOVE_RECURSE "${BuildDirectory}")
-        message(VERBOSE "Removing directory ${PackageDirectory}")
-        file(REMOVE_RECURSE "${PackageDirectory}")
-      endif()
+      set(BuildNeededMessage "last built with ${LastVersionMatch}, now on ${FetchDependencyVersion}")
     endif()
   endif()
 
@@ -257,52 +259,58 @@ function(fetch_dependency FD_NAME)
 
   if(NOT FD_FETCH_ONLY)
     if(NOT FastMode)
+      list(APPEND ConfigureArguments "-DCMAKE_INSTALL_PREFIX=${PackageDirectory}")
+      list(APPEND ConfigureArguments ${FD_GENERATE_OPTIONS})
+      list(APPEND BuildArguments ${FD_BUILD_OPTIONS})
+
+      if(CMAKE_TOOLCHAIN_FILE)
+        list(APPEND ConfigureArguments " --toolchain ${CMAKE_TOOLCHAIN_FILE}")
+      endif()
+
+      # Configuration handling differs for single- versus multi-config generators.
+      get_property(IsMultiConfig GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
+      if(IsMultiConfig)
+        list(APPEND BuildArguments "--config ${FD_CONFIGURATION}")
+      else()
+        list(APPEND ConfigureArguments "-DCMAKE_BUILD_TYPE=${FD_CONFIGURATION}")
+      endif()
+
+      # When invoking CMake, the package paths are passed via the CMAKE_PREFIX_PATH environment variable. This avoids a
+      # warning that would otherwise be generated if the dependency never actually caused CMAKE_PREFIX_PATH to be
+      # referenced. Note that the platform path delimiter must be used to separate individual paths in this case.
+      set(Packages ${FETCH_DEPENDENCY_PACKAGES})
+      if(UNIX)
+        string(REPLACE ";" ":" Packages "${Packages}")
+      endif()
+
+      string(REPLACE ";" " " ConfigureArguments "${ConfigureArguments}")
+      configure_file(
+        "${ConfigureScriptTemplateFilePath}"
+        "${ConfigureScriptFilePath}"
+        FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE WORLD_READ
+      )
+      _fd_check_step("${ConfigureScriptFilePath}" "${ConfigureScriptHashFilePath}" IsConfigureNeeded ConfigureScriptHash)
+
+      string(REPLACE ";" " " BuildArguments "${BuildArguments}")
+      configure_file(
+        "${BuildScriptTemplateFilePath}"
+        "${BuildScriptFilePath}"
+        FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE WORLD_READ
+      )
+      _fd_check_step("${BuildScriptFilePath}" "${BuildScriptHashFilePath}" IsBuildNeeded BuildScriptHash)
+
+      if(IsConfigureNeeded)
+        set(BuildNeededMessage "configure options differ")
+      elseif(IsBuildNeeded)
+        set(BuildNeededMessage "build options differ")
+      endif()
+
       if(NOT "${BuildNeededMessage}" STREQUAL "")
         message(STATUS "Building (${BuildNeededMessage}).")
-
-        list(APPEND ConfigureArguments "-DCMAKE_INSTALL_PREFIX=${PackageDirectory}")
-        list(APPEND ConfigureArguments ${FD_GENERATE_OPTIONS})
-        list(APPEND BuildArguments ${FD_BUILD_OPTIONS})
-
-        if(CMAKE_TOOLCHAIN_FILE)
-          list(APPEND ConfigureArguments " --toolchain ${CMAKE_TOOLCHAIN_FILE}")
-        endif()
-
-        # Configuration handling differs for single- versus multi-config generators.
-        get_property(IsMultiConfig GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
-        if(IsMultiConfig)
-          list(APPEND BuildArguments "--config ${FD_CONFIGURATION}")
-        else()
-          list(APPEND ConfigureArguments "-DCMAKE_BUILD_TYPE=${FD_CONFIGURATION}")
-        endif()
-
-        # When invoking CMake for the builds, the package paths are passed via the CMAKE_PREFIX_PATH environment variable.
-        # This avoids a warning that would otherwise be generated if the dependency never actually caused
-        # CMAKE_PREFIX_PATH to be referenced. Note that the platform path delimiter must be used to separate individual
-        # paths in the environment variable.
-        set(Packages ${FETCH_DEPENDENCY_PACKAGES})
-        if(UNIX)
-          string(REPLACE ";" ":" Packages "${Packages}")
-        endif()
-        set(ENV{CMAKE_PREFIX_PATH} "${Packages}")
-
-        # Configure, build and install the dependency.
-        string(REPLACE ";" " " SpacedConfigureArguments "${ConfigureArguments}")
-        configure_file(
-          "${ConfigureScriptTemplateFilePath}"
-          "${ConfigureScriptFilePath}"
-          FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE WORLD_READ
-        )
         _fd_run(COMMAND "${ConfigureScriptFilePath}" ERROR_CONTEXT "Configure failed: ")
-
-        string(REPLACE ";" " " SpacedBuildArguments "${BuildArguments}")
-        configure_file(
-          "${BuildScriptTemplateFilePath}"
-          "${BuildScriptFilePath}"
-          FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE WORLD_READ
-        )
+        file(WRITE "${ConfigureScriptHashFilePath}" ${ConfigureScriptHash})
         _fd_run(COMMAND "${BuildScriptFilePath}" ERROR_CONTEXT "Build failed: ")
-
+        file(WRITE "${BuildScriptHashFilePath}" ${BuildScriptHash})
       endif()
     endif()
 
@@ -323,8 +331,6 @@ function(fetch_dependency FD_NAME)
       endforeach()
     endif()
 
-    # Write the options file now that we know it has succeeded in configuring.
-    file(WRITE ${OptionsFilePath} "${RequiredOptions}\n")
     # Write the most up-to-date package manifest so that anything downstream of the calling project will know where its
     # dependencies were written to.
     string(REPLACE ";" "\n" ManifestContent "${FETCH_DEPENDENCY_PACKAGES}")

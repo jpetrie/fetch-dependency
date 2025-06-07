@@ -1,5 +1,5 @@
-${StepScriptHeader}
+${ScriptHeader}
 
-set CMAKE_PREFIX_PATH=${Packages}
-"${CMAKE_COMMAND}" --build "${BuildDirectory}" --target install ${SpacedBuildArguments}
+${ScriptSet} CMAKE_PREFIX_PATH=${Packages}
+"${CMAKE_COMMAND}" --build "${BuildDirectory}" --target install ${BuildArguments}
 
