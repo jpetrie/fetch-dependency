@@ -7,7 +7,7 @@ endif()
 
 set(FetchDependencyMajorVersion "0")
 set(FetchDependencyMinorVersion "3")
-set(FetchDependencyPatchVersion "3")
+set(FetchDependencyPatchVersion "4")
 set(FetchDependencyVersion "${FetchDependencyMajorVersion}.${FetchDependencyMinorVersion}.${FetchDependencyPatchVersion}")
 
 function(_fd_run)
@@ -169,9 +169,12 @@ function(fetch_dependency FD_NAME)
   set(PackageDirectory "${ProjectDirectory}/Package")
   set(StateDirectory "${ProjectDirectory}/State")
 
+  # The source file tracks the source mode and value when the dependency was last processed.
+  set(SourceFilePath "${StateDirectory}/source.txt")
+  
   # The version file tracks the version of FetchDependency that last processed the dependency.
   set(VersionFilePath "${StateDirectory}/version.txt")
-  
+
   # The manifest file contains the package directories of every dependency fetched for the calling project so far.
   set(ManifestFile "FetchedDependencies.txt")
   set(ManifestFilePath "${CMAKE_BINARY_DIR}/${ManifestFile}")
@@ -206,6 +209,18 @@ function(fetch_dependency FD_NAME)
 
   set(BuildNeededMessage "")
 
+  # Check the source stamp. If it changed, the whole dependency needs to be refreshed.
+  set(RequiredSourceStamp "${SourceMode}: ${SourceDirectory}")
+  set(PreviousSourceStamp "")
+  if(EXISTS "${SourceFilePath}")
+    file(READ "${SourceFilePath}" PreviousSourceStamp)
+  endif()
+  if(NOT "${RequiredSourceStamp}" STREQUAL "${PreviousSourceStamp}")
+    message(STATUS "Refreshing (source changed).")
+    message(VERBOSE "Removing directory ${ProjectDirectory}")
+    file(REMOVE_RECURSE "${ProjectDirectory}")
+  endif()
+
   # Check the version stamp. If this dependency was last processed with a version of FetchDependency with a different
   # major or minor version, the binary and package directories should be erased so that the dependency is rebuilt from
   # a clean state. This doesn't affect the source directory.
@@ -217,10 +232,8 @@ function(fetch_dependency FD_NAME)
     if(NOT ("${CMAKE_MATCH_1}" STREQUAL "${FetchDependencyMajorVersion}" AND "${CMAKE_MATCH_2}" STREQUAL "${FetchDependencyMinorVersion}"))
       message(VERBOSE "Removing directory ${BuildDirectory}")
       file(REMOVE_RECURSE "${BuildDirectory}")
-
       message(VERBOSE "Removing directory ${PackageDirectory}")
       file(REMOVE_RECURSE "${PackageDirectory}")
-
       message(VERBOSE "Removing directory ${StateDirectory}")
       file(REMOVE_RECURSE "${StateDirectory}")
 
@@ -275,6 +288,8 @@ function(fetch_dependency FD_NAME)
   elseif("${SourceMode}" STREQUAL "local")
     set(BuildNeededMessage "local source")
   endif()
+
+  file(WRITE "${SourceFilePath}" "${RequiredSourceStamp}")
 
   if(NOT FD_FETCH_ONLY)
     if(NOT FastMode)
