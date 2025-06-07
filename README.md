@@ -153,3 +153,20 @@ the configuration process (especially if you have many dependencies).
 "Fast mode" requires that a regular configure has been executed at least once, or the files necessary for the
 `find_package()` machinery to work correctly will not exist and the configuration will fail.
 
+### Local Dependency Edits
+Sometimes it is necessary to make local changes to a dependency - if it's something you are developing it parallel to
+your main project, or if there are bugs you're trying to address. FetchDependency generates CMake projects for each
+dependency, so it is possible to simply use those generated projects as you would normally. FetchDependency also allows
+you to reproduce the configure and build steps it uses exactly by executing scripts in the `State` subdirectory of the
+dependency folder. These scripts will be named `configure.sh`/`build.sh` or `configure.bat`/`build.bat` depending on
+your OS. 
+
+When FetchDependency detects a local change to a dependency's source (either because `LOCAL_SOURCE` is in use, or
+because the Git working tree is dirty), it will never attempt to perform any updates to the source and it will always
+attempt to trigger the build step. 
+
+Keep in mind that if you are using `GIT_SOURCE` for your dependency, the dependency's working tree is very likely in a
+"detached HEAD" state (confirm with `git status`). If that is true and you want to commit any local edits you make, you
+will need to make sure to create a branch from the local changes, switch over to a real branch, and merge those changes
+back in.
+
