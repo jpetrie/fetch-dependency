@@ -1,14 +1,21 @@
 # Minimum CMake version required. Currently driven by the use of GET_MESSAGE_LOG_LEVEL:
 # https://cmake.org/cmake/help/latest/command/cmake_language.html#get-message-log-level
-set(FetchDependencyMinimumVersion "3.25")
-if(${CMAKE_VERSION} VERSION_LESS ${FetchDependencyMinimumVersion})
-  message(FATAL_ERROR "FetchDependency requires CMake ${FetchDependencyMinimumVersion} (currently using ${CMAKE_VERSION}).")
+set(MinimumCMakeVersion "3.25")
+if(${CMAKE_VERSION} VERSION_LESS ${MinimumCMakeVersion})
+  message(FATAL_ERROR "FetchDependency requires CMake ${MinimumCMakeVersion} (currently using ${CMAKE_VERSION}).")
 endif()
 
-set(FetchDependencyMajorVersion "0")
-set(FetchDependencyMinorVersion "3")
-set(FetchDependencyPatchVersion "4")
-set(FetchDependencyVersion "${FetchDependencyMajorVersion}.${FetchDependencyMinorVersion}.${FetchDependencyPatchVersion}")
+# The FetchDependency version reflects the overall version of the module. It is purely user-facing documentation.
+# When updating FetchDependency, the follow guidelines are used to increment version elements:
+# - major: when API-breaking changes or significant rewrites occur
+# - minor: when new features are introduced or the storage version is incremented (see below)
+# - patch: when any other potentially user-observable changes occur (this includes refactoring, even if the assumption
+#          is that the refactor won't change behavior).
+set(FETCH_DEPENDENCY_VERSION "0.3.5")
+
+# The storage version reflects how we handle the build, package and state directories and store derived dependency data
+# in them. When it changes, those directories are refreshed.
+set(StorageVersion "0")
 
 function(_fd_run)
   cmake_parse_arguments(FDR "" "WORKING_DIRECTORY;ERROR_CONTEXT;OUT_STDOUT;OUT_STDERR" "COMMAND" ${ARGN})
@@ -221,23 +228,17 @@ function(fetch_dependency FD_NAME)
     file(REMOVE_RECURSE "${ProjectDirectory}")
   endif()
 
-  # Check the version stamp. If this dependency was last processed with a version of FetchDependency with a different
-  # major or minor version, the binary and package directories should be erased so that the dependency is rebuilt from
-  # a clean state. This doesn't affect the source directory.
+  # Check the version stamp. If it changed, the build, package and state directories needs to be refreshed.
   if(EXISTS ${VersionFilePath})
-    file(READ ${VersionFilePath} LastVersion)
-    string(REGEX MATCH "^([0-9]+)\\.([0-9]+)\\.([0-9]+)" LastVersionMatch ${LastVersion})
-
-    # Match 0 is the full match, 1-3 are the sub-matches for the major, minor and patch components.
-    if(NOT ("${CMAKE_MATCH_1}" STREQUAL "${FetchDependencyMajorVersion}" AND "${CMAKE_MATCH_2}" STREQUAL "${FetchDependencyMinorVersion}"))
+    file(READ ${VersionFilePath} PreviousVersion)
+    if(NOT "${StorageVersion}" STREQUAL "${PreviousVersion}")
+      message(STATUS "Refreshing (storage format changed).")
       message(VERBOSE "Removing directory ${BuildDirectory}")
       file(REMOVE_RECURSE "${BuildDirectory}")
       message(VERBOSE "Removing directory ${PackageDirectory}")
       file(REMOVE_RECURSE "${PackageDirectory}")
       message(VERBOSE "Removing directory ${StateDirectory}")
       file(REMOVE_RECURSE "${StateDirectory}")
-
-      set(BuildNeededMessage "last built with ${LastVersionMatch}, now on ${FetchDependencyVersion}")
     endif()
   endif()
 
@@ -379,8 +380,8 @@ function(fetch_dependency FD_NAME)
     set(FETCH_DEPENDENCY_PACKAGES "${FETCH_DEPENDENCY_PACKAGES}" PARENT_SCOPE)
   endif()
 
-  # The dependency was fully-processed, so stamp it with the current FetchDependency version.
-  file(WRITE ${VersionFilePath} "${FetchDependencyVersion}")
+  # The dependency was fully-processed, so stamp it with the current storage version.
+  file(WRITE ${VersionFilePath} "${StorageVersion}")
 
   message(STATUS "Checking dependency ${FD_NAME} - done")
 endfunction()
