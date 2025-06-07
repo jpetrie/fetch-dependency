@@ -15,7 +15,7 @@ set(FETCH_DEPENDENCY_VERSION "0.3.5")
 
 # The storage version reflects how we handle the build, package and state directories and store derived dependency data
 # in them. When it changes, those directories are refreshed.
-set(StorageVersion "0")
+set(StorageVersion "1")
 
 function(_fd_run)
   cmake_parse_arguments(FDR "" "WORKING_DIRECTORY;ERROR_CONTEXT;OUT_STDOUT;OUT_STDERR" "COMMAND" ${ARGN})
@@ -80,6 +80,26 @@ function(_fd_find FDF_NAME)
   set(CMAKE_PREFIX_PATH "${FDF_PATHS}")
   find_package(${FDF_NAME} REQUIRED PATHS ${FDF_ROOT})
   set(CMAKE_PREFIX_PATH ${SavedPrefixPath})
+endfunction()
+
+function(declare_dependency CD_NAME)
+  cmake_parse_arguments(CD
+    ""
+    "CONFIGURATION"
+    "CONFIGURE_OPTIONS;BUILD_OPTIONS"
+    ${ARGN}
+  )
+
+  if(NOT CD_CONFIGURATION)
+    message(FATAL_ERROR "CONFIGURATION must be provided.")
+  endif()
+
+  message(VERBOSE "Configuring dependency ${CD_NAME} (${CD_CONFIGURATION}).")
+  set(_fd_${CD_NAME}_${CD_CONFIGURATION}_ConfigureOptions ${CD_CONFIGURE_OPTIONS} PARENT_SCOPE)
+  set(_fd_${CD_NAME}_${CD_CONFIGURATION}_BuildOptions ${CD_BUILD_OPTIONS} PARENT_SCOPE)
+
+  list(APPEND _fd_${CD_NAME}_Configurations ${CD_CONFIGURATION})
+  set(_fd_${CD_NAME}_Configurations ${_fd_${CD_NAME}_Configurations} PARENT_SCOPE)
 endfunction()
 
 function(fetch_dependency FD_NAME)
@@ -161,10 +181,6 @@ function(fetch_dependency FD_NAME)
   endif()
   message(VERBOSE "Using root: ${FD_ROOT}")
 
-  if(NOT FD_CONFIGURATION)
-    set(FD_CONFIGURATION "Release")
-  endif()
-  
   set(ProjectDirectory "${FD_ROOT}/${FD_NAME}")
   if("${SourceMode}" STREQUAL "local")
     set(SourceDirectory "${FD_LOCAL_SOURCE}")
@@ -197,12 +213,7 @@ function(fetch_dependency FD_NAME)
   endif()
 
   set(ConfigureScriptTemplateFilePath "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Steps/configure.in")
-  set(ConfigureScriptFilePath "${StateDirectory}/configure.${ScriptExtension}")
-  set(ConfigureScriptHashFilePath "${StateDirectory}/last-configure.txt")
-
   set(BuildScriptTemplateFilePath "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Steps/build.in")
-  set(BuildScriptFilePath "${StateDirectory}/build.${ScriptExtension}")
-  set(BuildScriptHashFilePath "${StateDirectory}/last-build.txt")
 
   list(APPEND FETCH_DEPENDENCY_PACKAGES "${PackageDirectory}")
 
@@ -294,62 +305,104 @@ function(fetch_dependency FD_NAME)
 
   if(NOT FD_FETCH_ONLY)
     if(NOT FastMode)
-      list(APPEND ConfigureArguments "-DCMAKE_INSTALL_PREFIX=${PackageDirectory}")
-      list(APPEND ConfigureArguments ${FD_CONFIGURE_OPTIONS})
-      list(APPEND BuildArguments ${FD_BUILD_OPTIONS})
-
-      if(CMAKE_TOOLCHAIN_FILE)
-        list(APPEND ConfigureArguments " --toolchain ${CMAKE_TOOLCHAIN_FILE}")
-      endif()
-
-      # Configuration handling differs for single- versus multi-config generators.
-      get_property(IsMultiConfig GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
-      if(IsMultiConfig)
-        list(APPEND BuildArguments "--config ${FD_CONFIGURATION}")
+      # If CONFIGURATION is provided, allow explicitly-specified configure or build options to override those provided
+      # by declare_dependency().
+      if(FD_CONFIGURATION) 
+        list(FIND _fd_${FD_NAME}_Configurations ${FD_CONFIGURATION} ThisConfigurationIndex)
+        if(${ThisConfigurationIndex} LESS 0)
+          # declare_dependency() was never called, so do so now.
+          declare_dependency(${FD_NAME} CONFIGURATION ${FD_CONFIGURATION} CONFIGURE_OPTIONS ${FD_CONFIGURE_OPTIONS} BUILD_OPTIONS ${FD_BUILD_OPTIONS})
+        else()
+          # Replace the options previously given to declare_dependency().
+          if(FD_CONFIGURE_OPTIONS)
+            set(${_fd_${FD_NAME}_${ConfigurationName}_ConfigureOptions} ${FD_CONFIGURE_OPTIONS})
+          endif()
+          if(FD_BUILD_OPTIONS)
+            set(${_fd_${FD_NAME}_${ConfigurationName}_BuildOptions} ${FD_BUILD_OPTIONS})
+          endif()
+        endif()
       else()
-        list(APPEND ConfigureArguments "-DCMAKE_BUILD_TYPE=${FD_CONFIGURATION}")
-      endif()
-
-      # When invoking CMake, the package paths are passed via the CMAKE_PREFIX_PATH environment variable. This avoids a
-      # warning that would otherwise be generated if the dependency never actually caused CMAKE_PREFIX_PATH to be
-      # referenced. Note that the platform path delimiter must be used to separate individual paths in this case.
-      set(Packages ${FETCH_DEPENDENCY_PACKAGES})
-      if(UNIX)
-        string(REPLACE ";" ":" Packages "${Packages}")
-      endif()
-
-      string(REPLACE ";" " " ConfigureArguments "${ConfigureArguments}")
-      configure_file(
-        "${ConfigureScriptTemplateFilePath}"
-        "${ConfigureScriptFilePath}"
-        FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE WORLD_READ
-      )
-      _fd_check_step("${ConfigureScriptFilePath}" "${ConfigureScriptHashFilePath}" IsConfigureNeeded ConfigureScriptHash)
-
-      string(REPLACE ";" " " BuildArguments "${BuildArguments}")
-      configure_file(
-        "${BuildScriptTemplateFilePath}"
-        "${BuildScriptFilePath}"
-        FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE WORLD_READ
-      )
-      _fd_check_step("${BuildScriptFilePath}" "${BuildScriptHashFilePath}" IsBuildNeeded BuildScriptHash)
-
-      if(IsConfigureNeeded)
-        set(BuildNeededMessage "configure options differ")
-      elseif(IsBuildNeeded)
-        set(BuildNeededMessage "build options differ")
-      endif()
-
-      if(NOT "${BuildNeededMessage}" STREQUAL "")
-        message(STATUS "Building (${BuildNeededMessage}).")
-        if(IsConfigureNeeded)
-          _fd_run(COMMAND "${ConfigureScriptFilePath}" ERROR_CONTEXT "Configure failed: ")
-          file(WRITE "${ConfigureScriptHashFilePath}" ${ConfigureScriptHash})
+        # If CONFIGURATION isn't specified, there must have been at least one prior call to declare_dependency().
+        list(LENGTH _fd_${FD_NAME}_Configurations ConfigurationCount)
+        if(${ConfigurationCount} LESS_EQUAL 0)
+          message(FATAL_ERROR "CONFIGURATION must be provided if declare_dependency() has not been called.")
         endif()
 
-        _fd_run(COMMAND "${BuildScriptFilePath}" ERROR_CONTEXT "Build failed: ")
-        file(WRITE "${BuildScriptHashFilePath}" ${BuildScriptHash})
+        # Additionally, if CONFIGURATION isn't specified, it doesn't make sense for options to be provided.
+        if(FD_CONFIGURE_OPTIONS)
+          message(FATAL_ERROR "CONFIGURE_OPTIONS must not be provided if no CONFIGURATION is provided.")
+        endif()
+        if(FD_BUILD_OPTIONS)
+          message(FATAL_ERROR "BUILD_OPTIONS must not be provided if no CONFIGURATION is provided.")
+        endif()
       endif()
+
+      foreach(ConfigurationName ${_fd_${FD_NAME}_Configurations})
+        message(STATUS "Checking configuration ${ConfigurationName}")
+
+        set(ConfigureScriptFilePath "${StateDirectory}/${ConfigurationName}/configure.${ScriptExtension}")
+        set(ConfigureScriptHashFilePath "${StateDirectory}/${ConfigurationName}/last-configure.txt")
+
+        set(BuildScriptFilePath "${StateDirectory}/${ConfigurationName}/build.${ScriptExtension}")
+        set(BuildScriptHashFilePath "${StateDirectory}/${ConfigurationName}/last-build.txt")
+
+        list(APPEND ConfigureArguments "-DCMAKE_INSTALL_PREFIX=${PackageDirectory}")
+        list(APPEND ConfigureArguments ${_fd_${FD_NAME}_${ConfigurationName}_ConfigureOptions})
+        list(APPEND BuildArguments ${_fd_${FD_NAME}_${ConfigurationName}_BuildOptions})
+
+        if(CMAKE_TOOLCHAIN_FILE)
+          list(APPEND ConfigureArguments " --toolchain ${CMAKE_TOOLCHAIN_FILE}")
+        endif()
+
+        # Configuration handling differs for single- versus multi-config generators.
+        get_property(IsMultiConfig GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
+        if(IsMultiConfig)
+          list(APPEND BuildArguments "--config ${ConfigurationName}")
+        else()
+          list(APPEND ConfigureArguments "-DCMAKE_BUILD_TYPE=${ConfigurationName}")
+        endif()
+
+        # When invoking CMake, the package paths are passed via the CMAKE_PREFIX_PATH environment variable. This avoids a
+        # warning that would otherwise be generated if the dependency never actually caused CMAKE_PREFIX_PATH to be
+        # referenced. Note that the platform path delimiter must be used to separate individual paths in this case.
+        set(Packages ${FETCH_DEPENDENCY_PACKAGES})
+        if(UNIX)
+          string(REPLACE ";" ":" Packages "${Packages}")
+        endif()
+
+        string(REPLACE ";" " " ConfigureArguments "${ConfigureArguments}")
+        configure_file(
+          "${ConfigureScriptTemplateFilePath}"
+          "${ConfigureScriptFilePath}"
+          FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE WORLD_READ
+        )
+        _fd_check_step("${ConfigureScriptFilePath}" "${ConfigureScriptHashFilePath}" IsConfigureNeeded ConfigureScriptHash)
+
+        string(REPLACE ";" " " BuildArguments "${BuildArguments}")
+        configure_file(
+          "${BuildScriptTemplateFilePath}"
+          "${BuildScriptFilePath}"
+          FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE WORLD_READ
+        )
+        _fd_check_step("${BuildScriptFilePath}" "${BuildScriptHashFilePath}" IsBuildNeeded BuildScriptHash)
+
+        if(IsConfigureNeeded)
+          set(BuildNeededMessage "configure options differ")
+        elseif(IsBuildNeeded)
+          set(BuildNeededMessage "build options differ")
+        endif()
+
+        if(NOT "${BuildNeededMessage}" STREQUAL "")
+          message(STATUS "Building (${BuildNeededMessage}).")
+          if(IsConfigureNeeded)
+            _fd_run(COMMAND "${ConfigureScriptFilePath}" ERROR_CONTEXT "Configure failed: ")
+            file(WRITE "${ConfigureScriptHashFilePath}" ${ConfigureScriptHash})
+          endif()
+
+          _fd_run(COMMAND "${BuildScriptFilePath}" ERROR_CONTEXT "Build failed: ")
+          file(WRITE "${BuildScriptHashFilePath}" ${BuildScriptHash})
+        endif()
+      endforeach()
     endif()
 
     # Read the dependency's package manifest and find its dependencies. Finding these packages here ensures that if the
