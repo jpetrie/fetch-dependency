@@ -52,8 +52,7 @@ function(_fd_run)
 endfunction()
 
 # This function computes the hash of the given script and compares it to the previous hash stored in the hash file.
-# If they match, the result hash is empty because the step does not need to re-run. If they differ, the result hash is
-# the hash of the script (which must be re-run).
+# It returns whether or not the step should run and the hash of the given script in the last two variables.
 function(_fd_check_step FDCS_SCRIPT_FILE FDCS_HASH_FILE FDCS_RESULT FDCS_RESULT_HASH)
   file(MD5 "${FDCS_SCRIPT_FILE}" CurrentHash)
 
