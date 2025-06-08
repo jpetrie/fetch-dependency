@@ -6,7 +6,7 @@ if(${CMAKE_VERSION} VERSION_LESS ${MinimumCMakeVersion})
 endif()
 
 # The FetchDependency version reflects the overall version of the module. It is purely user-facing documentation.
-# When updating FetchDependency, the follow guidelines are used to increment version elements:
+# When updating FetchDependency, the following guidelines are used to increment version elements:
 # - major: when API-breaking changes or significant rewrites occur
 # - minor: when new features are introduced or the storage version is incremented (see below)
 # - patch: when any other potentially user-observable changes occur (this includes refactoring, even if the assumption
@@ -228,7 +228,7 @@ function(fetch_dependency FD_NAME)
     file(REMOVE_RECURSE "${ProjectDirectory}")
   endif()
 
-  # Check the version stamp. If it changed, the build, package and state directories needs to be refreshed.
+  # Check the version stamp. If it changed, the build, package and state directories need to be refreshed.
   if(EXISTS ${VersionFilePath})
     file(READ ${VersionFilePath} PreviousVersion)
     if(NOT "${StorageVersion}" STREQUAL "${PreviousVersion}")
