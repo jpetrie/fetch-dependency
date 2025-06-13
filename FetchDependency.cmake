@@ -337,6 +337,10 @@ function(fetch_dependency FD_NAME)
         endif()
       endif()
 
+      # This list holds the dependencies of the current dependency that need to be propagated. Each configuration likely
+      # has the same dependencies, but it's not guaranteed. Every dependency referenced is collected in this list, which
+      # is then de-duplicated before resolution.
+      set(PropagatedPackages "")
       foreach(ConfigurationName ${_fd_${FD_NAME}_Configurations})
         message(STATUS "Checking configuration ${ConfigurationName}")
 
@@ -402,23 +406,28 @@ function(fetch_dependency FD_NAME)
           _fd_run(COMMAND "${BuildScriptFilePath}" ERROR_CONTEXT "Build failed: ")
           file(WRITE "${BuildScriptHashFilePath}" ${BuildScriptHash})
         endif()
-      endforeach()
-    endif()
 
-    # Read the dependency's package manifest and find its dependencies. Finding these packages here ensures that if the
-    # dependency includes them in its link interface, they'll be loaded in the calling project when it needs to actually
-    # link with this dependency.
-    set(DependencyManifestFilePath "${BuildDirectory}/${ManifestFile}")
-    if(EXISTS "${DependencyManifestFilePath}")
-      file(STRINGS "${DependencyManifestFilePath}" DependencyPackages)
-      foreach(DependencyPackage ${DependencyPackages})
+        # Read the dependency's package manifest and propagate its dependencies.
+        set(DependencyManifestFilePath "${BuildDirectory}/${ConfigurationName}/${ManifestFile}")
+        if(EXISTS "${DependencyManifestFilePath}")
+          file(STRINGS "${DependencyManifestFilePath}" DependencyPackages)
+          foreach(DependencyPackage ${DependencyPackages})
+            list(APPEND PropagatedPackages "${DependencyPackage}")
+          endforeach()
+        endif()
+      endforeach()
+
+      list(REMOVE_DUPLICATES PropagatedPackages)
+      foreach(Propagated ${PropagatedPackages})
+        # Ensure the package is propagated down.
+        list(APPEND FETCH_DEPENDENCY_PACKAGES "${DependencyPackage}")
+
         string(REGEX REPLACE "/Package$" "" PackageName "${DependencyPackage}")
         cmake_path(GET PackageName FILENAME PackageName)
 
-        # Use the current set of package paths when finding the dependency; this is necessary to ensure that the any
-        # dependencies of the dependency that use direct find_package() calls that were satisfied by an earlier call to
-        # fetch_dependency() will find those dependencies.
-        _fd_find(${PackageName} ROOT ${DependencyPackage} PATHS ${DependencyPackages} ${FETCH_DEPENDENCY_PACKAGES})
+        # Resolve the dependency in the context of the calling project. This ensures that if the dependency includes
+        # them in its link interface, they're loaded when CMake tries to actually link with the this dependency.
+        _fd_find(${PackageName} ROOT ${DependencyPackage} PATHS ${FETCH_DEPENDENCY_PACKAGES})
       endforeach()
     endif()
 
