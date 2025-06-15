@@ -11,7 +11,7 @@ endif()
 # - minor: when new features are introduced or the storage version is incremented (see below)
 # - patch: when any other potentially user-observable changes occur (this includes refactoring, even if the assumption
 #          is that the refactor won't change behavior).
-set(FETCH_DEPENDENCY_VERSION "0.3.5")
+set(FETCH_DEPENDENCY_VERSION "0.3.6")
 
 # The storage version reflects how we handle the build, package and state directories and store derived dependency data
 # in them. When it changes, those directories are refreshed.
@@ -225,6 +225,8 @@ function(fetch_dependency FD_NAME)
     set(${FD_OUT_BINARY_DIR} "${BuildDirectory}" PARENT_SCOPE)
   endif()
 
+  get_property(IsMultiConfig GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
+
   set(BuildNeededMessage "")
 
   # Check the source stamp. If it changed, the whole dependency needs to be refreshed.
@@ -358,8 +360,10 @@ function(fetch_dependency FD_NAME)
           list(APPEND ConfigureArguments " --toolchain ${CMAKE_TOOLCHAIN_FILE}")
         endif()
 
-        # Configuration handling differs for single- versus multi-config generators.
-        get_property(IsMultiConfig GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
+        # Configuration handling differs for single- versus multi-config generators. Note that we use a unique directory
+        # per configuration even when multi-configuration generators are used because this allows each configuration to
+        # have its own set of generated properties (stored in ConfigureArguments), preserving the same behavior as with
+        # single-configuration generators.
         if(IsMultiConfig)
           list(APPEND BuildArguments "--config ${ConfigurationName}")
         else()
