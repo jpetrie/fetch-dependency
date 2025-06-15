@@ -1,5 +1,5 @@
 ${ScriptHeader}
 
 ${ScriptSet} CMAKE_PREFIX_PATH=${Packages}
-"${CMAKE_COMMAND}" --build "${BuildDirectory}" --target install ${BuildArguments}
+"${CMAKE_COMMAND}" --build "${BuildDirectory}/${ConfigurationName}" --target install ${BuildArguments}
 
