@@ -11,7 +11,7 @@ endif()
 # - minor: when new features are introduced or the storage version is incremented (see below)
 # - patch: when any other potentially user-observable changes occur (this includes refactoring, even if the assumption
 #          is that the refactor won't change behavior).
-set(FETCH_DEPENDENCY_VERSION "0.3.6")
+set(FETCH_DEPENDENCY_VERSION "0.3.7")
 
 # The storage version reflects how we handle the build, package and state directories and store derived dependency data
 # in them. When it changes, those directories are refreshed.
@@ -105,32 +105,10 @@ endfunction()
 function(fetch_dependency FD_NAME)
   cmake_parse_arguments(FD
     "FETCH_ONLY"
-    "ROOT;GIT_REPOSITORY;GIT_SOURCE;GIT_TAG;LOCAL_SOURCE;VERSION;PACKAGE_NAME;CONFIGURATION;CMAKELIST_SUBDIRECTORY;OUT_SOURCE_DIR;OUT_BINARY_DIR"
-    "GENERATE_OPTIONS;CONFIGURE_OPTIONS;BUILD_OPTIONS"
+    "ROOT;GIT_SOURCE;LOCAL_SOURCE;VERSION;PACKAGE_NAME;CONFIGURATION;CMAKELIST_SUBDIRECTORY;OUT_SOURCE_DIR;OUT_BINARY_DIR"
+    "CONFIGURE_OPTIONS;BUILD_OPTIONS"
     ${ARGN}
   )
-
-  # Handle deprecated parameters.
-  if(FD_GIT_REPOSITORY)
-    message(AUTHOR_WARNING "GIT_REPOSITORY is deprecated; use GIT_SOURCE instead. The value of the deprecated parameter will be copied to the correct parameter unless the latter is explicitly set. The deprecated parameter will be removed in a future version.")
-    if(NOT FD_GIT_SOURCE)
-      set(FD_GIT_SOURCE ${FD_GIT_REPOSITORY})
-    endif()
-  endif()
-
-  if(FD_GIT_TAG)
-    message(AUTHOR_WARNING "GIT_TAG is deprecated; use VERSION instead. The value of the deprecated parameter will be copied to the correct parameter unless the latter is explicitly set. The deprecated parameter will be removed in a future version.")
-    if(NOT FD_VERSION)
-      set(FD_VERSION ${FD_GIT_TAG})
-    endif()
-  endif()
-
-  if(FD_GENERATE_OPTIONS)
-    message(AUTHOR_WARNING "GENERATE_OPTIONS is deprecated; use CONFIGURE_OPTIONS instead. The value of the deprecated parameter will be copied to the correct parameter unless the latter is explicitly set. The deprecated parameter will be removed in a future version.")
-    if(NOT FD_CONFIGURE_OPTIONS)
-      set(FD_CONFIGURE_OPTIONS ${FD_GENERATE_OPTIONS})
-    endif()
-  endif()
 
   if($ENV{FETCH_DEPENDENCY_FAST})
     set(FastMode ON)
