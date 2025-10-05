@@ -11,7 +11,7 @@ endif()
 # - minor: when new features are introduced or the storage version is incremented (see below)
 # - patch: when any other potentially user-observable changes occur (this includes refactoring, even if the assumption
 #          is that the refactor won't change behavior).
-set(FETCH_DEPENDENCY_VERSION "0.3.10")
+set(FETCH_DEPENDENCY_VERSION "0.4.0")
 
 # The storage version reflects how we handle the build, package and state directories and store derived dependency data
 # in them. When it changes, those directories are refreshed.
@@ -110,7 +110,7 @@ endfunction()
 function(fetch_dependency FD_NAME)
   cmake_parse_arguments(FD
     "FETCH_ONLY"
-    "ROOT;GIT_SOURCE;LOCAL_SOURCE;VERSION;PACKAGE_NAME;CONFIGURATION;CMAKELIST_SUBDIRECTORY;OUT_SOURCE_DIR;OUT_BINARY_DIR"
+    "ROOT;GIT_SOURCE;LOCAL_SOURCE;VERSION;PACKAGE_NAME;CONFIGURATION;CMAKELIST_SUBDIRECTORY;OUT_SOURCE_DIR"
     "CONFIGURE_OPTIONS;BUILD_OPTIONS"
     ${ARGN}
   )
@@ -201,11 +201,6 @@ function(fetch_dependency FD_NAME)
 
   if(FD_OUT_SOURCE_DIR)
     set(${FD_OUT_SOURCE_DIR} "${SourceDirectory}" PARENT_SCOPE)
-  endif()
-
-  if(FD_OUT_BINARY_DIR)
-    message(AUTHOR_WARNING "OUT_BINARY_DIR is deprecated, use declare_dependency() instead")
-    set(${FD_OUT_BINARY_DIR} "${BuildDirectory}" PARENT_SCOPE)
   endif()
 
   get_property(IsMultiConfig GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
