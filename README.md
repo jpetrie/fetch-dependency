@@ -1,10 +1,8 @@
 # FetchDependency
-
 FetchDependency is a CMake module that provides a mechanism to download, configure, build and install (local to the
 calling project) a dependency package at configuration time.
 
 FetchDependency is designed to enable dependency handling in CMake according to a specific philosophy:
-
  - A project's dependencies should be made available automatically, to enable the quickest turnaround time from fetching
    a project from source control to a successful build of that project.
  - A project's dependencies should be stored with it by default, rather than in a global location, in order to isolate
@@ -42,29 +40,27 @@ include(${fetchdependency_SOURCE_DIR}/FetchDependency.cmake)
 
 As such you should expect breaking changes with potentially every commit, including changes to the storage architecture
 that will require all dependencies to be re-downloaded and/or re-built. It is strongly recommended that you pin
-FetchDependency to a specific commit ID via `GIT_TAG` when installing.
+FetchDependency to a specific commit ID via `FetchContent_Declare`'s `GIT_TAG` parameter when installing.
 
 ## Usage
-
-FetchDependency provides a single function, `fetch_dependency()`, which will fetch and find a dependency package:
-
+Calling `fetch_dependency()` will fetch, build and install a dependency package:
 ```cmake
-  fetch_dependency(Catch2 GIT_SOURCE https://github.com/catchorg/Catch2.git VERSION v2.13.8)
+  fetch_dependency(Catch2 GIT_SOURCE https://github.com/catchorg/Catch2.git VERSION v2.13.8 CONFIGURATION Release)
 ```
 
-This will fetch, configure, build and install [Catch2](https://github.com/catchorg/Catch2) within the calling project's
-CMake binary directory. It will then call `find_package()` to locate the dependency and make it available to future
-targets immediately:
-
+This will make the Release configuration of [Catch2](https://github.com/catchorg/Catch2) immediately available to the
+calling project's future targets:
 ```cmake
   target_link_libraries(... Catch2::Catch2)
 ```
 
+If you need to build multiple configurations of a dependency, you can use `declare_dependency()` to pre-declare a
+dependency configuration and its associated options before calling `fetch_dependency()`. See the full documentation
+below for details.
+
 ## Documentation
-
-### fetch_dependency()
+### `fetch_dependency()`
 Download, build and locally install a dependency named `<name>` during configuration.
-
 ```cmake
   fetch_dependency(
     <name>
@@ -79,10 +75,8 @@ Download, build and locally install a dependency named `<name>` during configura
     [BUILD_OPTIONS <options...>]
     [CMAKELIST_SUBDIRECTORY <path>]
     [OUT_SOURCE_DIR <out-var>]
-    [OUT_BINARY_DIR <out-var>]
   )
 ```
-
 `<name>` is used to create the directory where the dependency's source and artifacts will be stored. Unless
 `PACKAGE_NAME` is provided (see below), it will also be used in the internal `find_package()` call to locate the
 dependency's targets.
@@ -90,45 +84,62 @@ dependency's targets.
 One of `LOCAL_SOURCE` or `GIT_SOURCE` are required, and they are mutually exclusive.
 
 Options:
-- `LOCAL_SOURCE <path>` Path to the source of the dependency on the local file system.
-
-- `GIT_SOURCE <url>` URL of the Git repository. See the documentation for the `ROOT` parameter below for detail on
-  where the repository will be cloned.
-
-- `VERSION <version>` Version string associated with the source. For local sources, this is unused and shouldn't be
+ - `LOCAL_SOURCE <path>` Path to the source of the dependency on the local file system.
+ - `GIT_SOURCE <url>` URL of the Git repository. See the documentation for the `ROOT` parameter below for detail on
+   where the repository will be cloned.
+ - `VERSION <version>` Version string associated with the source. For local sources, this is unused and shouldn't be
    provided. For Git sources, this is a Git branch name, tag or commit hash. A commit hash is the recommended means of
    specifying a dependency version. Branches must be specified with their name to ensure they are correctly updated.
    Specifying a commit hash is recommended because it can allow the `git fetch` operation to be avoided during configure
    when the local copy is already on the specified tag. This option is required when `GIT_SOURCE` is specified.
-
-- `FETCH_ONLY` Download the dependency, but do not build or install it. This is useful for dependencies where only the
+ - `FETCH_ONLY` Download the dependency, but do not build or install it. This is useful for dependencies where only the
    source is needed. Note that this will still _configure_ the dependency (this is required to enable updates if
-   `VERSION` is changed, due to how `fetch_dependency()` is implemented).
-
-- `ROOT <path>` The root storage directory for the dependency. If not specified, the value of the global
-  `FETCH_DEPENDENCY_DEFAULT_ROOT` will be used. If `FETCH_DEPENDENCY_DEFAULT_ROOT` is not defined, the value "External"
-  will be used. In all cases, if the root is a relative path, it will be interpreted as relative to `CMAKE_BINARY_DIR`.
-  This parameter is ignored when the `LOCAL_SOURCE` option is used.
-
-- `PACKAGE_NAME <package>` Pass `<package>` to `find_package()` internally when locating the built dependency's
+   `VERSION` is changed, due to how `fetch_dependency()` is implemented). If you do not want the dependency configured
+   (or it is not a CMake project), consider using CMake's [FetchContent](https://cmake.org/cmake/help/latest/module/FetchContent.html)
+   module instead.
+ - `ROOT <path>` The root storage directory for the dependency. If not specified, the value of the global
+   `FETCH_DEPENDENCY_DEFAULT_ROOT` will be used. If `FETCH_DEPENDENCY_DEFAULT_ROOT` is not defined, the value "External"
+   will be used. In all cases, if the root is a relative path, it will be interpreted as relative to `CMAKE_BINARY_DIR`.
+   This parameter is ignored when the `LOCAL_SOURCE` option is used.
+ - `PACKAGE_NAME <package>` Pass `<package>` to `find_package()` internally when locating the built dependency's
    targets. If not specified, the value of `<name>` will be used.
-
-- `CONFIGURATION <name>` Use the named configuration instead of the default for the dependency. Specifying a
+ - `CONFIGURATION <name>` Use the named configuration instead of the default for the dependency. Specifying a
    configuration via this option will work correctly regardless of whether or not the generator in use is a single-
    or multi-configuration generator. If not specified, "Release" is assumed.
-
-- `CONFIGURE_OPTIONS <options...>` Pass the following options to CMake when generating the dependency.
-
-- `BUILD_OPTIONS <options...>` Pass the following options to CMake's `--build` command when building the dependency.
-
-- `CMAKELIST_SUBDIRECTORY <path>` The path to the directory containing the `CMakeLists.txt` for the dependency if it
+ - `CONFIGURE_OPTIONS <options...>` Pass the following options to CMake when generating the dependency.
+ - `BUILD_OPTIONS <options...>` Pass the following options to CMake's `--build` command when building the dependency.
+ - `CMAKELIST_SUBDIRECTORY <path>` The path to the directory containing the `CMakeLists.txt` for the dependency if it
    is not located at the root of the dependency's source tree. Always interpreted as a path relative to the dependency's
    source tree.
+ - `OUT_SOURCE_DIR <out-var>` The name of a variable that will be set to the absolute path to the dependency's source
+   tree.
 
-- `OUT_SOURCE_DIR <out-var>` The name of a variable that will be set to the absolute path to the dependency's source
-  tree.
+### `declare_dependency()`
+Pre-declare a dependency's configuration.
+```cmake
+  declare_dependency(
+    <name>
+    CONFIGURATION <path>
+    [CONFIGURE_OPTIONS <options...>]
+    [BUILD_OPTIONS <options...>]
+    [OUT_BINARY_DIR <out-var>]
+  )
+```
 
-- `OUT_BINARY_DIR <out-var>` The name of a variable that will be set the absolute path to the dependency's binary tree.
+`declare_dependency()` must be called before the corresponding `fetch_dependency()` call. When pre-declaring
+configurations, it isn't neccessary to pass configuration-related parameters to `fetch_dependency()`. All declared
+configurations will be built and installed.
+
+`<name>` must match the name used when `fetch_dependency()` is called.
+
+Options:
+ - `CONFIGURATION <name>` The configuration to declare.
+ - `CONFIGURE_OPTIONS <options...>` Pass the following options to CMake when generating this configuration of the
+   dependency.
+ - `BUILD_OPTIONS <options...>` Pass the following options to CMake's `--build` command when building this configuration
+   of the dependency.
+ - `OUT_BINARY_DIR <out-var>` The name of a variable that will be set the absolute path to the dependency's binary tree.
+   Note that this variable will not be written to until the corresponding `fetch_dependency()` call completes.
 
 ### FETCH_DEPENDENCY_DEFAULT_ROOT
 Defines the default root directory for fetched dependencies. It is initially undefined, which causes
