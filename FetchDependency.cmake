@@ -5,14 +5,6 @@ if(${CMAKE_VERSION} VERSION_LESS ${MinimumCMakeVersion})
   message(FATAL_ERROR "FetchDependency requires CMake ${MinimumCMakeVersion} (currently using ${CMAKE_VERSION})")
 endif()
 
-# The FetchDependency version reflects the overall version of the module. It is purely user-facing documentation.
-# When updating FetchDependency, the following guidelines are used to increment version elements:
-# - major: when API-breaking changes or significant rewrites occur
-# - minor: when new features are introduced or the storage version is incremented (see below)
-# - patch: when any other potentially user-observable changes occur (this includes refactoring, even if the assumption
-#          is that the refactor won't change behavior).
-set(FETCH_DEPENDENCY_VERSION "0.4.0")
-
 # The storage version reflects how we handle the build, package and state directories and store derived dependency data
 # in them. When it changes, those directories are refreshed.
 set(StorageVersion "1")

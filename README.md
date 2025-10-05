@@ -30,17 +30,11 @@ The recommended way to automatically include FetchDependency in your project is 
 include(FetchContent)
 FetchContent_Declare(FetchDependency
   GIT_REPOSITORY https://github.com/jpetrie/fetch-dependency.git
-  GIT_TAG origin/main
+  GIT_TAG 1.0.0
 )
 FetchContent_MakeAvailable(FetchDependency)
 include(${fetchdependency_SOURCE_DIR}/FetchDependency.cmake)
 ```
-
-⚠️FetchDependency has not reached version 1.0!⚠️
-
-As such you should expect breaking changes with potentially every commit, including changes to the storage architecture
-that will require all dependencies to be re-downloaded and/or re-built. It is strongly recommended that you pin
-FetchDependency to a specific commit ID via `FetchContent_Declare`'s `GIT_TAG` parameter when installing.
 
 ## Usage
 Calling `fetch_dependency()` will fetch, build and install a dependency package:
@@ -147,9 +141,6 @@ Defines the default root directory for fetched dependencies. It is initially und
 
 ### `FETCH_DEPENDENCY_PACKAGES`
 Stores the set of package directories fetched by the project (and all of its dependencies, recursively) so far.
-
-### `FETCH_DEPENDENCY_VERSION`
-Stores the version of the FetchDependency module in `major.minor.patch` format.
 
 ## Recipes
 ### Fast Build Infrastructure Iteration
