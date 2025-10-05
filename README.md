@@ -13,8 +13,8 @@ FetchDependency is designed to enable dependency handling in CMake according to 
    avoid target name collisions and keep the project's target list focused.
 
 The cost of the aforementioned features is increased configuration time when using FetchDependency, especially during
-the initial configuration, as all dependencies are downloaded and built from source. This is noticeably un-CMake-like
-behavior, but it is necessary to achieve the above. 
+the initial configuration, as all dependencies are downloaded and built from source. This is _noticeably un-CMake-like
+behavior_, but it is necessary to achieve the above.
 
 To alleviate the impact of configure-time builds, FetchDependency attempts to minimize build invocations by tracking
 information about the build such as its commit hash and the options used to configure it. Additionally, most of
