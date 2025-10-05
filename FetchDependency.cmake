@@ -2,7 +2,7 @@
 # https://cmake.org/cmake/help/latest/command/cmake_language.html#get-message-log-level
 set(MinimumCMakeVersion "3.25")
 if(${CMAKE_VERSION} VERSION_LESS ${MinimumCMakeVersion})
-  message(FATAL_ERROR "FetchDependency requires CMake ${MinimumCMakeVersion} (currently using ${CMAKE_VERSION}).")
+  message(FATAL_ERROR "FetchDependency requires CMake ${MinimumCMakeVersion} (currently using ${CMAKE_VERSION})")
 endif()
 
 # The FetchDependency version reflects the overall version of the module. It is purely user-facing documentation.
@@ -11,7 +11,7 @@ endif()
 # - minor: when new features are introduced or the storage version is incremented (see below)
 # - patch: when any other potentially user-observable changes occur (this includes refactoring, even if the assumption
 #          is that the refactor won't change behavior).
-set(FETCH_DEPENDENCY_VERSION "0.3.8")
+set(FETCH_DEPENDENCY_VERSION "0.3.9")
 
 # The storage version reflects how we handle the build, package and state directories and store derived dependency data
 # in them. When it changes, those directories are refreshed.
@@ -57,7 +57,8 @@ function(_fd_run)
 endfunction()
 
 # This function computes the hash of the given script and compares it to the previous hash stored in the hash file.
-# It returns whether or not the step should run and the hash of the given script in the last two variables.
+# It returns whether or not the step should run in the variable specified by FDCS_RESULT. The current hash is returned
+# in the variable specified by FDCS_RESULT_HASH.
 function(_fd_check_step FDCS_SCRIPT_FILE FDCS_HASH_FILE FDCS_RESULT FDCS_RESULT_HASH)
   file(MD5 "${FDCS_SCRIPT_FILE}" CurrentHash)
 
@@ -91,10 +92,10 @@ function(declare_dependency CD_NAME)
   )
 
   if(NOT CD_CONFIGURATION)
-    message(FATAL_ERROR "CONFIGURATION must be provided.")
+    message(FATAL_ERROR "CONFIGURATION must be provided")
   endif()
 
-  message(VERBOSE "-- Configuring dependency ${CD_NAME} (${CD_CONFIGURATION}).")
+  message(VERBOSE "-- Configuring dependency ${CD_NAME} (${CD_CONFIGURATION})")
   set(_fd_${CD_NAME}_${CD_CONFIGURATION}_ConfigureOptions ${CD_CONFIGURE_OPTIONS} PARENT_SCOPE)
   set(_fd_${CD_NAME}_${CD_CONFIGURATION}_BuildOptions ${CD_BUILD_OPTIONS} PARENT_SCOPE)
 
@@ -122,22 +123,22 @@ function(fetch_dependency FD_NAME)
   set(SourceMode "")
   if(FD_LOCAL_SOURCE)
     if(FD_GIT_SOURCE)
-      message(AUTHOR_WARNING "LOCAL_SOURCE and GIT_SOURCE are mutually exclusive; LOCAL_SOURCE will be used.")
+      message(AUTHOR_WARNING "LOCAL_SOURCE and GIT_SOURCE are mutually exclusive, LOCAL_SOURCE will be used")
     endif()
 
     if(FD_VERSION)
-      message(AUTHOR_WARNING "VERSION is ignored when LOCAL_SOURCE is provided.")
+      message(AUTHOR_WARNING "VERSION is ignored when LOCAL_SOURCE is provided")
     endif()
 
     set(SourceMode "local")
   elseif(FD_GIT_SOURCE)
     if(NOT FD_VERSION)
-      message(FATAL_ERROR "VERSION must be provided.")
+      message(FATAL_ERROR "VERSION must be provided")
     endif()
 
     set(SourceMode "git")
   else()
-    message(FATAL_ERROR "LOCAL_SOURCE or GIT_SOURCE must be provided.")
+    message(FATAL_ERROR "LOCAL_SOURCE or GIT_SOURCE must be provided")
   endif()
 
   if(NOT FD_PACKAGE_NAME)
@@ -157,7 +158,6 @@ function(fetch_dependency FD_NAME)
   if(IsRootRelative)
     cmake_path(APPEND CMAKE_BINARY_DIR ${FD_ROOT} OUTPUT_VARIABLE FD_ROOT)
   endif()
-  message(VERBOSE "-- Root directory is ${FD_ROOT}")
 
   set(ProjectDirectory "${FD_ROOT}/${FD_NAME}")
   if("${SourceMode}" STREQUAL "local")
@@ -212,10 +212,12 @@ function(fetch_dependency FD_NAME)
   set(PreviousSourceStamp "")
   if(EXISTS "${SourceFilePath}")
     file(READ "${SourceFilePath}" PreviousSourceStamp)
-  endif()
-  if(NOT "${RequiredSourceStamp}" STREQUAL "${PreviousSourceStamp}")
-    message(STATUS "Refreshing (source changed).")
-    message(VERBOSE "-- Removing directory ${ProjectDirectory}")
+    if(NOT "${RequiredSourceStamp}" STREQUAL "${PreviousSourceStamp}")
+      message(STATUS "Updating (source changed)")
+      file(REMOVE_RECURSE "${ProjectDirectory}")
+    endif()
+  else()
+    message(STATUS "Downloading (source missing)")
     file(REMOVE_RECURSE "${ProjectDirectory}")
   endif()
 
@@ -223,12 +225,9 @@ function(fetch_dependency FD_NAME)
   if(EXISTS ${VersionFilePath})
     file(READ ${VersionFilePath} PreviousVersion)
     if(NOT "${StorageVersion}" STREQUAL "${PreviousVersion}")
-      message(STATUS "Refreshing (storage format changed).")
-      message(VERBOSE "-- Removing directory ${BuildDirectory}")
+      message(STATUS "Updating (storage format changed)")
       file(REMOVE_RECURSE "${BuildDirectory}")
-      message(VERBOSE "-- Removing directory ${PackageDirectory}")
       file(REMOVE_RECURSE "${PackageDirectory}")
-      message(VERBOSE "-- Removing directory ${StateDirectory}")
       file(REMOVE_RECURSE "${StateDirectory}")
     endif()
   endif()
@@ -243,7 +242,7 @@ function(fetch_dependency FD_NAME)
       # assumed to be intentional and prevent attempts to update.
       _fd_run(COMMAND git status --porcelain WORKING_DIRECTORY "${SourceDirectory}" OUT_STDOUT GitStatus)
       if(NOT "${GitStatus}" STREQUAL "")
-        message(AUTHOR_WARNING "Source has local changes; update suppressed (${SourceDirectory}).")
+        message(AUTHOR_WARNING "Source has local changes, update suppressed (${SourceDirectory})")
       else()
         # Determine what the required version refers to in order to decide if we need to fetch from the remote or not.
         _fd_run(COMMAND git show-ref ${FD_VERSION} WORKING_DIRECTORY "${SourceDirectory}" OUT_STDOUT ShowRefOutput OUT_STDERR DiscardedError)
@@ -252,7 +251,7 @@ function(fetch_dependency FD_NAME)
           set(IsFetchRequired TRUE)
         elseif(${ShowRefOutput} MATCHES "^[a-z0-9]+[ \\t]+refs/heads/")
           # The version is a branch name without a remote. We don't allow this; the remote name must be specified.
-          message(FATAL_ERROR "VERSION must include a remote when referring to branch (e.g., 'origin/branch' instead of 'branch').")
+          message(FATAL_ERROR "VERSION must include a remote when referring to branch (e.g., 'origin/branch' instead of 'branch')")
         else()
           # The version is a commit hash. This is the ideal case, because if the current and required commits match we can
           # skip the fetch entirely.
@@ -275,7 +274,7 @@ function(fetch_dependency FD_NAME)
     _fd_run(COMMAND git rev-parse ${FD_VERSION}^0 WORKING_DIRECTORY "${SourceDirectory}" OUT_STDOUT RequiredCommit)
     if(NOT "${ExistingCommit}" STREQUAL "${RequiredCommit}")
       _fd_run(COMMAND git -c advice.detachedHead=false checkout --recurse-submodules ${FD_VERSION} WORKING_DIRECTORY "${SourceDirectory}")
-      set(BuildNeededMessage "versions differ")
+      set(BuildNeededMessage "new version")
     endif()
   elseif("${SourceMode}" STREQUAL "local")
     set(BuildNeededMessage "local source")
@@ -305,15 +304,15 @@ function(fetch_dependency FD_NAME)
         # If CONFIGURATION isn't specified, there must have been at least one prior call to declare_dependency().
         list(LENGTH _fd_${FD_NAME}_Configurations ConfigurationCount)
         if(${ConfigurationCount} LESS_EQUAL 0)
-          message(FATAL_ERROR "CONFIGURATION must be provided if declare_dependency() has not been called.")
+          message(FATAL_ERROR "CONFIGURATION must be provided if declare_dependency() has not been called")
         endif()
 
         # Additionally, if CONFIGURATION isn't specified, it doesn't make sense for options to be provided.
         if(FD_CONFIGURE_OPTIONS)
-          message(FATAL_ERROR "CONFIGURE_OPTIONS must not be provided if no CONFIGURATION is provided.")
+          message(FATAL_ERROR "CONFIGURE_OPTIONS must not be provided if no CONFIGURATION is provided")
         endif()
         if(FD_BUILD_OPTIONS)
-          message(FATAL_ERROR "BUILD_OPTIONS must not be provided if no CONFIGURATION is provided.")
+          message(FATAL_ERROR "BUILD_OPTIONS must not be provided if no CONFIGURATION is provided")
         endif()
       endif()
 
@@ -373,13 +372,13 @@ function(fetch_dependency FD_NAME)
         _fd_check_step("${BuildScriptFilePath}" "${BuildScriptHashFilePath}" IsBuildNeeded BuildScriptHash)
 
         if(IsConfigureNeeded)
-          set(BuildNeededMessage "configure options differ")
+          set(BuildNeededMessage "new configure options")
         elseif(IsBuildNeeded)
-          set(BuildNeededMessage "build options differ")
+          set(BuildNeededMessage "new build options")
         endif()
 
         if(NOT "${BuildNeededMessage}" STREQUAL "")
-          message(STATUS "Building (${BuildNeededMessage}).")
+          message(STATUS "Building (${BuildNeededMessage})")
           if(IsConfigureNeeded)
             _fd_run(COMMAND "${ConfigureScriptFilePath}" ERROR_CONTEXT "Configure failed: ")
             file(WRITE "${ConfigureScriptHashFilePath}" ${ConfigureScriptHash})
