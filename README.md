@@ -61,7 +61,7 @@ below for details.
 ## Documentation
 ### `fetch_dependency()`
 Download, build and locally install a dependency named `<name>` during configuration.
-```cmake
+```
   fetch_dependency(
     <name>
     LOCAL_SOURCE <path>
@@ -116,7 +116,7 @@ Options:
 
 ### `declare_dependency()`
 Pre-declare a dependency's configuration.
-```cmake
+```
   declare_dependency(
     <name>
     CONFIGURATION <path>
@@ -141,14 +141,14 @@ Options:
  - `OUT_BINARY_DIR <out-var>` The name of a variable that will be set the absolute path to the dependency's binary tree.
    Note that this variable will not be written to until the corresponding `fetch_dependency()` call completes.
 
-### FETCH_DEPENDENCY_DEFAULT_ROOT
+### `FETCH_DEPENDENCY_DEFAULT_ROOT`
 Defines the default root directory for fetched dependencies. It is initially undefined, which causes
 `fetch_dependency()` to fall back to storing dependencies underneath `${CMAKE_BINARY_DIR}/External/`. 
 
-### FETCH_DEPENDENCY_PACKAGES
+### `FETCH_DEPENDENCY_PACKAGES`
 Stores the set of package directories fetched by the project (and all of its dependencies, recursively) so far.
 
-### FETCH_DEPENDENCY_VERSION
+### `FETCH_DEPENDENCY_VERSION`
 Stores the version of the FetchDependency module in `major.minor.patch` format.
 
 ## Recipes
