@@ -11,7 +11,7 @@ endif()
 # - minor: when new features are introduced or the storage version is incremented (see below)
 # - patch: when any other potentially user-observable changes occur (this includes refactoring, even if the assumption
 #          is that the refactor won't change behavior).
-set(FETCH_DEPENDENCY_VERSION "0.3.9")
+set(FETCH_DEPENDENCY_VERSION "0.3.10")
 
 # The storage version reflects how we handle the build, package and state directories and store derived dependency data
 # in them. When it changes, those directories are refreshed.
@@ -83,24 +83,28 @@ function(_fd_find FDF_NAME)
   set(CMAKE_PREFIX_PATH ${SavedPrefixPath})
 endfunction()
 
-function(declare_dependency CD_NAME)
-  cmake_parse_arguments(CD
+function(declare_dependency DD_NAME)
+  cmake_parse_arguments(DD
     ""
-    "CONFIGURATION"
+    "CONFIGURATION;OUT_BINARY_DIR"
     "CONFIGURE_OPTIONS;BUILD_OPTIONS"
     ${ARGN}
   )
 
-  if(NOT CD_CONFIGURATION)
+  if(NOT DD_CONFIGURATION)
     message(FATAL_ERROR "CONFIGURATION must be provided")
   endif()
 
-  message(VERBOSE "-- Configuring dependency ${CD_NAME} (${CD_CONFIGURATION})")
-  set(_fd_${CD_NAME}_${CD_CONFIGURATION}_ConfigureOptions ${CD_CONFIGURE_OPTIONS} PARENT_SCOPE)
-  set(_fd_${CD_NAME}_${CD_CONFIGURATION}_BuildOptions ${CD_BUILD_OPTIONS} PARENT_SCOPE)
+  message(VERBOSE "-- Configuring dependency ${DD_NAME} (${DD_CONFIGURATION})")
+  set(_fd_${DD_NAME}_${DD_CONFIGURATION}_ConfigureOptions ${DD_CONFIGURE_OPTIONS} PARENT_SCOPE)
+  set(_fd_${DD_NAME}_${DD_CONFIGURATION}_BuildOptions ${DD_BUILD_OPTIONS} PARENT_SCOPE)
 
-  list(APPEND _fd_${CD_NAME}_Configurations ${CD_CONFIGURATION})
-  set(_fd_${CD_NAME}_Configurations ${_fd_${CD_NAME}_Configurations} PARENT_SCOPE)
+  list(APPEND _fd_${DD_NAME}_Configurations ${DD_CONFIGURATION})
+  set(_fd_${DD_NAME}_Configurations ${_fd_${DD_NAME}_Configurations} PARENT_SCOPE)
+
+  if(DD_OUT_BINARY_DIR)
+    set(_fd_${DD_NAME}_${DD_CONFIGURATION}_BinaryDirectoryVariable "${DD_OUT_BINARY_DIR}" PARENT_SCOPE)
+  endif()
 endfunction()
 
 function(fetch_dependency FD_NAME)
@@ -200,6 +204,7 @@ function(fetch_dependency FD_NAME)
   endif()
 
   if(FD_OUT_BINARY_DIR)
+    message(AUTHOR_WARNING "OUT_BINARY_DIR is deprecated, use declare_dependency() instead")
     set(${FD_OUT_BINARY_DIR} "${BuildDirectory}" PARENT_SCOPE)
   endif()
 
@@ -321,7 +326,11 @@ function(fetch_dependency FD_NAME)
       # is then de-duplicated before resolution.
       set(PropagatedPackages "")
       foreach(ConfigurationName ${_fd_${FD_NAME}_Configurations})
-        message(STATUS "Checking configuration ${ConfigurationName}")
+        message(STATUS "Preparing configuration ${ConfigurationName}")
+
+        if(_fd_${FD_NAME}_${ConfigurationName}_BinaryDirectoryVariable)
+          set(${_fd_${FD_NAME}_${ConfigurationName}_BinaryDirectoryVariable} "${BuildDirectory}/${ConfigurationName}" PARENT_SCOPE)
+        endif()
 
         set(ConfigureScriptFilePath "${StateDirectory}/${ConfigurationName}/configure.${ScriptExtension}")
         set(ConfigureScriptHashFilePath "${StateDirectory}/${ConfigurationName}/last-configure.txt")
