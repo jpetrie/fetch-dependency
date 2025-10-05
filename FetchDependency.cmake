@@ -265,7 +265,7 @@ function(fetch_dependency FD_NAME)
 
         if(IsFetchRequired)
           _fd_run(COMMAND git fetch --tags WORKING_DIRECTORY "${SourceDirectory}")
-          _fd_run(COMMAND git submodule update --remote WORKING_DIRECTORY "${SourceDirectory}")
+          _fd_run(COMMAND git submodule update WORKING_DIRECTORY "${SourceDirectory}")
         endif()
       endif()
     endif()
