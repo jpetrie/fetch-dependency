@@ -229,7 +229,7 @@ function(fetch_dependency FD_NAME)
     set(IsFetchRequired FALSE)
     if(NOT IS_DIRECTORY "${SourceDirectory}")
       _fd_run(COMMAND git clone ${FD_GIT_SOURCE} "${SourceDirectory}")
-      _fd_run(COMMAND git submodule update --init --recursive)
+      _fd_run(COMMAND git submodule update WORKING_DIRECTORY "${SourceDirectory}")
     elseif(NOT FastMode)
       # If the directory exists, before doing anything else, make sure the it is in a clean state. Any local changes are
       # assumed to be intentional and prevent attempts to update.
