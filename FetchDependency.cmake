@@ -101,9 +101,9 @@ endfunction()
 
 function(fetch_dependency FD_NAME)
   cmake_parse_arguments(FD
-    "FETCH_ONLY"
+    "GIT_DISABLE_SUBMODULES;GIT_DISABLE_SUBMODULE_RECURSION;FETCH_ONLY"
     "ROOT;GIT_SOURCE;LOCAL_SOURCE;VERSION;PACKAGE_NAME;CONFIGURATION;CMAKELIST_SUBDIRECTORY;OUT_SOURCE_DIR"
-    "CONFIGURE_OPTIONS;BUILD_OPTIONS"
+    "GIT_SUBMODULES;CONFIGURE_OPTIONS;BUILD_OPTIONS"
     ${ARGN}
   )
 
@@ -135,6 +135,18 @@ function(fetch_dependency FD_NAME)
     set(SourceMode "git")
   else()
     message(FATAL_ERROR "LOCAL_SOURCE or GIT_SOURCE must be provided")
+  endif()
+
+  if(FD_GIT_DISABLE_SUBMODULES)
+    set(IsSubmoduleUpdateEnabled FALSE)
+  else()
+    set(IsSubmoduleUpdateEnabled TRUE)
+  endif()
+
+  if(FD_GIT_DISABLE_SUBMODULE_RECURSION)
+    set(SubmoduleRecursiveFlag "")
+  else()
+    set(SubmoduleRecursiveFlag "--recursive")
   endif()
 
   if(NOT FD_PACKAGE_NAME)
@@ -229,7 +241,9 @@ function(fetch_dependency FD_NAME)
     set(IsFetchRequired FALSE)
     if(NOT IS_DIRECTORY "${SourceDirectory}")
       _fd_run(COMMAND git clone ${FD_GIT_SOURCE} "${SourceDirectory}")
-      _fd_run(COMMAND git submodule update --init --recursive WORKING_DIRECTORY "${SourceDirectory}")
+      if(IsSubmoduleUpdateEnabled)
+        _fd_run(COMMAND git submodule update --init ${SubmoduleRecursiveFlag} ${FD_GIT_SUBMODULES} WORKING_DIRECTORY "${SourceDirectory}")
+      endif()
     elseif(NOT FastMode)
       # If the directory exists, before doing anything else, make sure the it is in a clean state. Any local changes are
       # assumed to be intentional and prevent attempts to update.
@@ -258,7 +272,9 @@ function(fetch_dependency FD_NAME)
 
         if(IsFetchRequired)
           _fd_run(COMMAND git fetch --tags WORKING_DIRECTORY "${SourceDirectory}")
-          _fd_run(COMMAND git submodule update --init --recursive WORKING_DIRECTORY "${SourceDirectory}")
+          if(IsSubmoduleUpdateEnabled)
+            _fd_run(COMMAND git submodule update --init ${SubmoduleRecursiveFlag} ${FD_GIT_SUBMODULES} WORKING_DIRECTORY "${SourceDirectory}")
+          endif()
         endif()
       endif()
     endif()
@@ -267,7 +283,9 @@ function(fetch_dependency FD_NAME)
     _fd_run(COMMAND git rev-parse ${FD_VERSION}^0 WORKING_DIRECTORY "${SourceDirectory}" OUT_STDOUT RequiredCommit)
     if(NOT "${ExistingCommit}" STREQUAL "${RequiredCommit}")
       _fd_run(COMMAND git -c advice.detachedHead=false checkout ${FD_VERSION} WORKING_DIRECTORY "${SourceDirectory}")
-      _fd_run(COMMAND git submodule update --init --recursive WORKING_DIRECTORY "${SourceDirectory}")
+      if(IsSubmoduleUpdateEnabled)
+        _fd_run(COMMAND git submodule update --init ${SubmoduleRecursiveFlag} ${FD_GIT_SUBMODULES} WORKING_DIRECTORY "${SourceDirectory}")
+      endif()
       set(BuildNeededMessage "new version")
     endif()
   elseif("${SourceMode}" STREQUAL "local")

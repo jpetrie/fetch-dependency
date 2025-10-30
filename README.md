@@ -62,6 +62,9 @@ Download, build and locally install a dependency named `<name>` during configura
     GIT_SOURCE <url>
     [VERSION <version>]
     [FETCH_ONLY]
+    [GIT_DISABLE_SUBMODULES]
+    [GIT_DISABLE_SUBMODULE_RECURSION]
+    [GIT_SUBMODULES <paths...>]
     [ROOT <path>]
     [PACKAGE_NAME <package>]
     [CONFIGURATION <configuration>]
@@ -91,6 +94,12 @@ Options:
    `VERSION` is changed, due to how `fetch_dependency()` is implemented). If you do not want the dependency configured
    (or it is not a CMake project), consider using CMake's [FetchContent](https://cmake.org/cmake/help/latest/module/FetchContent.html)
    module instead.
+ - `GIT_DISABLE_SUBMODULES` Prevent submodule updates when downloading the dependency (in other words, do not execute
+   `git submodule` commands).
+ - `GIT_DISABLE_SUBMODULE_RECURSION` Prevent submodule updates from recursively updating additional submodules (in other
+   words, do not pass `--recursive` to `git submodule` commands).
+ - `GIT_SUBMODULES <paths...>` Process only the specified submodule paths during submodule updates. If this option is
+   not specified, all submodules will be updated. `GIT_DISABLE_SUBMODULES` will override this option.
  - `ROOT <path>` The root storage directory for the dependency. If not specified, the value of the global
    `FETCH_DEPENDENCY_DEFAULT_ROOT` will be used. If `FETCH_DEPENDENCY_DEFAULT_ROOT` is not defined, the value "External"
    will be used. In all cases, if the root is a relative path, it will be interpreted as relative to `CMAKE_BINARY_DIR`.
