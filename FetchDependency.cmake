@@ -101,7 +101,7 @@ endfunction()
 
 function(fetch_dependency FD_NAME)
   cmake_parse_arguments(FD
-    "GIT_DISABLE_SUBMODULES;GIT_DISABLE_SUBMODULE_RECURSION;FETCH_ONLY"
+    "GIT_DISABLE_SUBMODULES;GIT_DISABLE_SUBMODULE_RECURSION;FETCH_ONLY;NO_RESOLVE"
     "ROOT;GIT_SOURCE;LOCAL_SOURCE;VERSION;PACKAGE_NAME;CONFIGURATION;CMAKELIST_SUBDIRECTORY;OUT_SOURCE_DIR"
     "GIT_SUBMODULES;CONFIGURE_OPTIONS;BUILD_OPTIONS"
     ${ARGN}
@@ -428,15 +428,17 @@ function(fetch_dependency FD_NAME)
       endforeach()
     endif()
 
-    # Write the most up-to-date package manifest so that anything downstream of the calling project will know where its
-    # dependencies were written to.
-    string(REPLACE ";" "\n" ManifestContent "${FETCH_DEPENDENCY_PACKAGES}")
-    file(WRITE ${ManifestFilePath} "${ManifestContent}\n")
+    if(NOT FD_NO_RESOLVE)
+      # Write the most up-to-date package manifest so that anything downstream of the calling project will know where its
+      # dependencies were written to.
+      string(REPLACE ";" "\n" ManifestContent "${FETCH_DEPENDENCY_PACKAGES}")
+      file(WRITE ${ManifestFilePath} "${ManifestContent}\n")
 
-    _fd_find(${FD_PACKAGE_NAME} ROOT ${PackageDirectory} PATHS ${DependencyPackages} ${FETCH_DEPENDENCY_PACKAGES})
+      _fd_find(${FD_PACKAGE_NAME} ROOT ${PackageDirectory} PATHS ${DependencyPackages} ${FETCH_DEPENDENCY_PACKAGES})
 
-    # Propagate the updated package directory list.
-    set(FETCH_DEPENDENCY_PACKAGES "${FETCH_DEPENDENCY_PACKAGES}" PARENT_SCOPE)
+      # Propagate the updated package directory list.
+      set(FETCH_DEPENDENCY_PACKAGES "${FETCH_DEPENDENCY_PACKAGES}" PARENT_SCOPE)
+    endif()
   endif()
 
   # The dependency was fully-processed, so stamp it with the current storage version.

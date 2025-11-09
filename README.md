@@ -62,6 +62,7 @@ Download, build and locally install a dependency named `<name>` during configura
     GIT_SOURCE <url>
     [VERSION <version>]
     [FETCH_ONLY]
+    [NO_RESOLVE]
     [GIT_DISABLE_SUBMODULES]
     [GIT_DISABLE_SUBMODULE_RECURSION]
     [GIT_SUBMODULES <paths...>]
@@ -94,6 +95,9 @@ Options:
    `VERSION` is changed, due to how `fetch_dependency()` is implemented). If you do not want the dependency configured
    (or it is not a CMake project), consider using CMake's [FetchContent](https://cmake.org/cmake/help/latest/module/FetchContent.html)
    module instead.
+ - `NO_RESOLVE` Do not attempt to resolve the dependency's targets by calling `find_package()`. This flag is useful if a
+   dependency does not generate the configuration files neccessary for `find_package()` to work (for example, if the
+   dependency ships with `pkg-config` metadata instead).
  - `GIT_DISABLE_SUBMODULES` Prevent submodule updates when downloading the dependency (in other words, do not execute
    `git submodule` commands).
  - `GIT_DISABLE_SUBMODULE_RECURSION` Prevent submodule updates from recursively updating additional submodules (in other
