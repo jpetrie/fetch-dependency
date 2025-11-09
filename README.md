@@ -48,6 +48,12 @@ calling project's future targets:
   target_link_libraries(... Catch2::Catch2)
 ```
 
+FetchDependency can resolve targets for dependencies that support
+[`find_package()`](https://cmake.org/cmake/help/latest/command/find_package.html) (in config mode) or
+[`PkgConfig`](https://cmake.org/cmake/help/latest/module/FindPkgConfig.html). FetchDependency does not generate or alias
+any targets on its own. The resolved target names will be those defined by the dependency itself, with the exception of
+targets found by `PkgConfig` (which itself creates imported targets within a `PkgConfig::` namespace).
+
 If you need to build multiple configurations of a dependency, you can use `declare_dependency()` to pre-declare a
 dependency configuration and its associated options before calling `fetch_dependency()`. See the full documentation
 below for details.
