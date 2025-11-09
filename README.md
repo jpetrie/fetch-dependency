@@ -61,8 +61,8 @@ Download, build and locally install a dependency named `<name>` during configura
     LOCAL_SOURCE <path>
     GIT_SOURCE <url>
     [VERSION <version>]
-    [FETCH_ONLY]
     [NO_RESOLVE]
+    [NO_BUILD]
     [GIT_DISABLE_SUBMODULES]
     [GIT_DISABLE_SUBMODULE_RECURSION]
     [GIT_SUBMODULES <paths...>]
@@ -90,14 +90,14 @@ Options:
    specifying a dependency version. Branches must be specified with their name to ensure they are correctly updated.
    Specifying a commit hash is recommended because it can allow the `git fetch` operation to be avoided during configure
    when the local copy is already on the specified tag. This option is required when `GIT_SOURCE` is specified.
- - `FETCH_ONLY` Download the dependency, but do not build or install it. This is useful for dependencies where only the
-   source is needed. Note that this will still _configure_ the dependency (this is required to enable updates if
-   `VERSION` is changed, due to how `fetch_dependency()` is implemented). If you do not want the dependency configured
-   (or it is not a CMake project), consider using CMake's [FetchContent](https://cmake.org/cmake/help/latest/module/FetchContent.html)
-   module instead.
  - `NO_RESOLVE` Do not attempt to resolve the dependency's targets by calling `find_package()`. This flag is useful if a
    dependency does not generate the configuration files neccessary for `find_package()` to work (for example, if the
    dependency ships with `pkg-config` metadata instead).
+ - `NO_BUILD` Do not build or install the dependency. This is useful for dependencies where only the source is needed.
+   Note that this will still _configure_ the dependency (this is required to enable updates if `VERSION` is changed, due
+   to how `fetch_dependency()` is implemented). If you do not want the dependency configured (or it is not a CMake
+   project), consider using CMake's [FetchContent](https://cmake.org/cmake/help/latest/module/FetchContent.html) module
+   instead. Setting this option implies `NO_RESOLVE`.
  - `GIT_DISABLE_SUBMODULES` Prevent submodule updates when downloading the dependency (in other words, do not execute
    `git submodule` commands).
  - `GIT_DISABLE_SUBMODULE_RECURSION` Prevent submodule updates from recursively updating additional submodules (in other

@@ -101,11 +101,16 @@ endfunction()
 
 function(fetch_dependency FD_NAME)
   cmake_parse_arguments(FD
-    "GIT_DISABLE_SUBMODULES;GIT_DISABLE_SUBMODULE_RECURSION;FETCH_ONLY;NO_RESOLVE"
+    "GIT_DISABLE_SUBMODULES;GIT_DISABLE_SUBMODULE_RECURSION;FETCH_ONLY;NO_RESOLVE;NO_BUILD"
     "ROOT;GIT_SOURCE;LOCAL_SOURCE;VERSION;PACKAGE_NAME;CONFIGURATION;CMAKELIST_SUBDIRECTORY;OUT_SOURCE_DIR"
     "GIT_SUBMODULES;CONFIGURE_OPTIONS;BUILD_OPTIONS"
     ${ARGN}
   )
+
+  if(FD_FETCH_ONLY)
+    message(AUTHOR_WARNING "FETCH_ONLY is deprecated and will be removed in a future version of FetchDependency. Use the NO_BUILD option instead.")
+    set(FD_NO_BUILD TRUE)
+  endif()
 
   set(FastMode OFF)
   set(FastModeNotice "")
@@ -294,7 +299,7 @@ function(fetch_dependency FD_NAME)
 
   file(WRITE "${SourceFilePath}" "${RequiredSourceStamp}")
 
-  if(NOT FD_FETCH_ONLY)
+  if(NOT FD_NO_BUILD)
     if(NOT FastMode)
       # If CONFIGURATION is provided, allow explicitly-specified configure or build options to override those provided
       # by declare_dependency().
