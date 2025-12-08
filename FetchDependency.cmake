@@ -362,12 +362,12 @@ function(fetch_dependency FD_NAME)
         set(BuildScriptFilePath "${StateDirectory}/${ConfigurationName}/build.${ScriptExtension}")
         set(BuildScriptHashFilePath "${StateDirectory}/${ConfigurationName}/last-build.txt")
 
-        list(APPEND ConfigureArguments "-DCMAKE_INSTALL_PREFIX=${PackageDirectory}")
-        list(APPEND ConfigureArguments ${_fd_${FD_NAME}_${ConfigurationName}_ConfigureOptions})
-        list(APPEND BuildArguments ${_fd_${FD_NAME}_${ConfigurationName}_BuildOptions})
+        string(APPEND ConfigureArguments "-DCMAKE_INSTALL_PREFIX=${PackageDirectory} ")
+        string(APPEND ConfigureArguments "${_fd_${FD_NAME}_${ConfigurationName}_ConfigureOptions} ")
+        string(APPEND BuildArguments "${_fd_${FD_NAME}_${ConfigurationName}_BuildOptions} ")
 
         if(CMAKE_TOOLCHAIN_FILE)
-          list(APPEND ConfigureArguments " --toolchain ${CMAKE_TOOLCHAIN_FILE}")
+          string(APPEND ConfigureArguments "--toolchain ${CMAKE_TOOLCHAIN_FILE} ")
         endif()
 
         # Configuration handling differs for single- versus multi-config generators. Note that we use a unique directory
@@ -375,9 +375,9 @@ function(fetch_dependency FD_NAME)
         # have its own set of generated properties (stored in ConfigureArguments), preserving the same behavior as with
         # single-configuration generators.
         if(IsMultiConfig)
-          list(APPEND BuildArguments "--config ${ConfigurationName}")
+          string(APPEND BuildArguments "--config ${ConfigurationName} ")
         else()
-          list(APPEND ConfigureArguments "-DCMAKE_BUILD_TYPE=${ConfigurationName}")
+          string(APPEND ConfigureArguments "-DCMAKE_BUILD_TYPE=${ConfigurationName} ")
         endif()
 
         # When invoking CMake, the package paths are passed via the CMAKE_PREFIX_PATH environment variable. This avoids a
@@ -388,7 +388,7 @@ function(fetch_dependency FD_NAME)
           string(REPLACE ";" ":" Packages "${Packages}")
         endif()
 
-        string(REPLACE ";" " " ConfigureArguments "${ConfigureArguments}")
+        string(STRIP "${ConfigureArguments}" ConfigureArguments)
         configure_file(
           "${ConfigureScriptTemplateFilePath}"
           "${ConfigureScriptFilePath}"
@@ -396,7 +396,7 @@ function(fetch_dependency FD_NAME)
         )
         _fd_check_step("${ConfigureScriptFilePath}" "${ConfigureScriptHashFilePath}" IsConfigureNeeded ConfigureScriptHash)
 
-        string(REPLACE ";" " " BuildArguments "${BuildArguments}")
+        string(STRIP "${BuildArguments}" BuildArguments)
         configure_file(
           "${BuildScriptTemplateFilePath}"
           "${BuildScriptFilePath}"
