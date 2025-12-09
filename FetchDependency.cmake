@@ -114,7 +114,7 @@ endfunction()
 function(fetch_dependency FD_NAME)
   cmake_parse_arguments(FD
     "GIT_DISABLE_SUBMODULES;GIT_DISABLE_SUBMODULE_RECURSION;FETCH_ONLY;NO_RESOLVE;NO_BUILD"
-    "ROOT;GIT_SOURCE;LOCAL_SOURCE;VERSION;PACKAGE_NAME;CONFIGURATION;CMAKELIST_SUBDIRECTORY;OUT_SOURCE_DIR"
+    "ROOT;GIT_SOURCE;LOCAL_SOURCE;VERSION;PACKAGE_NAME;CONFIGURATION;CMAKELIST_SUBDIRECTORY;LIST_SEPARATOR;OUT_SOURCE_DIR"
     "GIT_SUBMODULES;CONFIGURE_OPTIONS;BUILD_OPTIONS"
     ${ARGN}
   )
@@ -362,12 +362,12 @@ function(fetch_dependency FD_NAME)
         set(BuildScriptFilePath "${StateDirectory}/${ConfigurationName}/build.${ScriptExtension}")
         set(BuildScriptHashFilePath "${StateDirectory}/${ConfigurationName}/last-build.txt")
 
-        string(APPEND ConfigureArguments "-DCMAKE_INSTALL_PREFIX=${PackageDirectory} ")
-        string(APPEND ConfigureArguments "${_fd_${FD_NAME}_${ConfigurationName}_ConfigureOptions} ")
-        string(APPEND BuildArguments "${_fd_${FD_NAME}_${ConfigurationName}_BuildOptions} ")
+        list(APPEND ConfigureArguments "-DCMAKE_INSTALL_PREFIX=${PackageDirectory}")
+        list(APPEND ConfigureArguments ${_fd_${FD_NAME}_${ConfigurationName}_ConfigureOptions})
+        list(APPEND BuildArguments ${_fd_${FD_NAME}_${ConfigurationName}_BuildOptions})
 
         if(CMAKE_TOOLCHAIN_FILE)
-          string(APPEND ConfigureArguments "--toolchain ${CMAKE_TOOLCHAIN_FILE} ")
+          list(APPEND ConfigureArguments " --toolchain ${CMAKE_TOOLCHAIN_FILE}")
         endif()
 
         # Configuration handling differs for single- versus multi-config generators. Note that we use a unique directory
@@ -375,9 +375,9 @@ function(fetch_dependency FD_NAME)
         # have its own set of generated properties (stored in ConfigureArguments), preserving the same behavior as with
         # single-configuration generators.
         if(IsMultiConfig)
-          string(APPEND BuildArguments "--config ${ConfigurationName} ")
+          list(APPEND BuildArguments "--config ${ConfigurationName}")
         else()
-          string(APPEND ConfigureArguments "-DCMAKE_BUILD_TYPE=${ConfigurationName} ")
+          list(APPEND ConfigureArguments "-DCMAKE_BUILD_TYPE=${ConfigurationName}")
         endif()
 
         # When invoking CMake, the package paths are passed via the CMAKE_PREFIX_PATH environment variable. This avoids a
@@ -388,7 +388,10 @@ function(fetch_dependency FD_NAME)
           string(REPLACE ";" ":" Packages "${Packages}")
         endif()
 
-        string(STRIP "${ConfigureArguments}" ConfigureArguments)
+        string(REPLACE ";" " " ConfigureArguments "${ConfigureArguments}")
+        if(FD_LIST_SEPARATOR)
+          string(REPLACE ${FD_LIST_SEPARATOR} ";" ConfigureArguments "${ConfigureArguments}")
+        endif()
         configure_file(
           "${ConfigureScriptTemplateFilePath}"
           "${ConfigureScriptFilePath}"
@@ -396,7 +399,10 @@ function(fetch_dependency FD_NAME)
         )
         _fd_check_step("${ConfigureScriptFilePath}" "${ConfigureScriptHashFilePath}" IsConfigureNeeded ConfigureScriptHash)
 
-        string(STRIP "${BuildArguments}" BuildArguments)
+        string(REPLACE ";" " " BuildArguments "${BuildArguments}")
+        if(FD_LIST_SEPARATOR)
+          string(REPLACE ${FD_LIST_SEPARATOR} ";" BuildArguments "${BuildArguments}")
+        endif()
         configure_file(
           "${BuildScriptTemplateFilePath}"
           "${BuildScriptFilePath}"

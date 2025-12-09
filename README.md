@@ -78,6 +78,7 @@ Download, build and locally install a dependency named `<name>` during configura
     [CONFIGURE_OPTIONS <options...>]
     [BUILD_OPTIONS <options...>]
     [CMAKELIST_SUBDIRECTORY <path>]
+    [LIST_SEPARATOR <separator>]
     [OUT_SOURCE_DIR <out-var>]
   )
 ```
@@ -124,7 +125,13 @@ Options:
  - `CMAKELIST_SUBDIRECTORY <path>` The path to the directory containing the `CMakeLists.txt` for the dependency if it
    is not located at the root of the dependency's source tree. Always interpreted as a path relative to the dependency's
    source tree.
- - `OUT_SOURCE_DIR <out-var>` The name of a variable that will be set to the absolute path to the dependency's source
+ - `LIST_SEPARATOR <separator>` A string that FetchDependency will replace with `;` just prior to writing the values of
+   `CONFIGURE_OPTIONS` or `BUILD_OPTIONS` to the corresponding step script. This must be used when semicolons need to be
+   included in option values, for example when needing to pass `-DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"`. The `;`
+   character will cause CMake to split the value in two, so instead must set `LIST_SEPARATOR` to something like `"<s>"`
+   and write `-DCMAKE_OSX_ARCHITECTURES="x86_64<s>arm64"` in `CONFIGURE_OPTIONS`. The value of `LIST_SEPARATOR` applies
+   to any configurations pre-declared using `declare_dependency()` for this dependency as well.
+ - `OUT_SOURCE_DIR <out-var>` The name of a variable that will be set to the absolute path to the dependency's source`
    tree.
 
 ### `declare_dependency()`
