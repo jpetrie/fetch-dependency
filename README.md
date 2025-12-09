@@ -30,7 +30,7 @@ The recommended way to automatically include FetchDependency in your project is 
 include(FetchContent)
 FetchContent_Declare(FetchDependency
   GIT_REPOSITORY https://github.com/jpetrie/fetch-dependency.git
-  GIT_TAG 1.2.1
+  GIT_TAG 1.2.2
 )
 FetchContent_MakeAvailable(FetchDependency)
 include(${fetchdependency_SOURCE_DIR}/FetchDependency.cmake)
