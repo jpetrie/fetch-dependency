@@ -72,8 +72,10 @@ Download, build and locally install a dependency named `<name>` during configura
     [GIT_DISABLE_SUBMODULES]
     [GIT_DISABLE_SUBMODULE_RECURSION]
     [GIT_SUBMODULES <paths...>]
-    [ROOT <path>]
+    [SOURCE_ROOT <path>]
+    [BINARY_ROOT <path>]
     [PACKAGE_NAME <package>]
+    [GENERATOR <generator>]
     [CONFIGURATION <configuration>]
     [CONFIGURE_OPTIONS <options...>]
     [BUILD_OPTIONS <options...>]
@@ -111,12 +113,21 @@ Options:
    words, do not pass `--recursive` to `git submodule` commands).
  - `GIT_SUBMODULES <paths...>` Process only the specified submodule paths during submodule updates. If this option is
    not specified, all submodules will be updated. `GIT_DISABLE_SUBMODULES` will override this option.
- - `ROOT <path>` The root storage directory for the dependency. If not specified, the value of the global
-   `FETCH_DEPENDENCY_DEFAULT_ROOT` will be used. If `FETCH_DEPENDENCY_DEFAULT_ROOT` is not defined, the value "External"
-   will be used. In all cases, if the root is a relative path, it will be interpreted as relative to `CMAKE_BINARY_DIR`.
-   This parameter is ignored when the `LOCAL_SOURCE` option is used.
+ - `SOURCE_ROOT <path>` The root storage directory for dependency source code (except when `LOCAL_SOURCE` is used). If
+   not specified, the value of the global `FETCH_DEPENDENCY_DEFAULT_SOURCE_ROOT` will be used. If that global is not
+   defined, the value "External" will be used. If the root is a relative path, it will be interpreted as relative to
+   `CMAKE_BINARY_DIR`. If the normalized value of this path is the same as that of `BINARY_ROOT`, then the subdirectory
+   "Source" will be added to the source root in order to avoid potential conflicts with binary root subdirectories.
+ - `BINARY_ROOT <path>` The root storage directory for dependency binary direcetory and associated artifacts. If not
+   specified, the value of the global `FETCH_DEPENDENCY_DEFAULT_BINARY_ROOT` will be used. If that global is not
+   defined, the value "External" will be used. If the root is a relative path, it will be interpreted as relative to
+   `CMAKE_BINARY_DIR`.
  - `PACKAGE_NAME <package>` Pass `<package>` to `find_package()` internally when locating the built dependency's
    targets. If not specified, the value of `<name>` will be used.
+ - `GENERATOR <generator>` Use the specified generator to configure the dependency, instead of inheriting the value of
+   `CMAKE_GENERATOR` from the outer project. This parameter is required when calling `fetch_dependency` in [script
+   mode](https://cmake.org/cmake/help/latest/manual/cmake.1.html#cmdoption-cmake-P), because `CMAKE_GENERATOR` will not
+   be set.
  - `CONFIGURATION <name>` Use the named configuration instead of the default for the dependency. Specifying a
    configuration via this option will work correctly regardless of whether or not the generator in use is a single-
    or multi-configuration generator. If not specified, "Release" is assumed.
@@ -161,9 +172,13 @@ Options:
  - `OUT_BINARY_DIR <out-var>` The name of a variable that will be set the absolute path to the dependency's binary tree.
    Note that this variable will not be written to until the corresponding `fetch_dependency()` call completes.
 
-### `FETCH_DEPENDENCY_DEFAULT_ROOT`
-Defines the default root directory for fetched dependencies. It is initially undefined, which causes
-`fetch_dependency()` to fall back to storing dependencies underneath `${CMAKE_BINARY_DIR}/External/`. 
+### `FETCH_DEPENDENCY_DEFAULT_SOURCE_ROOT`
+Defines the default source root directory for fetched dependencies. It is initially undefined, which causes
+`fetch_dependency()` to fall back to storing dependency source underneath `${CMAKE_BINARY_DIR}/External/`. 
+
+### `FETCH_DEPENDENCY_DEFAULT_BINARY_ROOT`
+Defines the default source root directory for dependency binary directories. It is initially undefined, which causes
+`fetch_dependency()` to fall back to storing dependency binaries underneath `${CMAKE_BINARY_DIR}/External/`. 
 
 ### `FETCH_DEPENDENCY_PACKAGES`
 Stores the set of package directories fetched by the project (and all of its dependencies, recursively) so far.
