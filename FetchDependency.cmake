@@ -509,10 +509,10 @@ function(fetch_dependency FD_NAME)
       file(WRITE ${ManifestFilePath} "${ManifestContent}\n")
 
       _fd_find(${FD_PACKAGE_NAME} ROOT ${PackageDirectory} PATHS ${DependencyPackages} ${FETCH_DEPENDENCY_PACKAGES})
-
-      # Propagate the updated package directory list.
-      set(FETCH_DEPENDENCY_PACKAGES "${FETCH_DEPENDENCY_PACKAGES}" PARENT_SCOPE)
     endif()
+
+    # Propagate the updated package directory list.
+    set(FETCH_DEPENDENCY_PACKAGES "${FETCH_DEPENDENCY_PACKAGES}" PARENT_SCOPE)
   endif()
 
   # The dependency was fully-processed, so stamp it with the current storage version.
