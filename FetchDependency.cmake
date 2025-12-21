@@ -114,7 +114,7 @@ endfunction()
 function(fetch_dependency FD_NAME)
   cmake_parse_arguments(FD
     "GIT_DISABLE_SUBMODULES;GIT_DISABLE_SUBMODULE_RECURSION;FETCH_ONLY;NO_RESOLVE;NO_BUILD"
-    "ROOT;GIT_SOURCE;LOCAL_SOURCE;VERSION;PACKAGE_NAME;CONFIGURATION;CMAKELIST_SUBDIRECTORY;LIST_SEPARATOR;OUT_SOURCE_DIR"
+    "ROOT;GIT_SOURCE;LOCAL_SOURCE;VERSION;PACKAGE_NAME;GENERATOR;CONFIGURATION;CMAKELIST_SUBDIRECTORY;LIST_SEPARATOR;OUT_SOURCE_DIR"
     "GIT_SUBMODULES;CONFIGURE_OPTIONS;BUILD_OPTIONS"
     ${ARGN}
   )
@@ -124,6 +124,16 @@ function(fetch_dependency FD_NAME)
     set(FD_NO_BUILD TRUE)
   endif()
 
+  get_property(Role GLOBAL PROPERTY CMAKE_ROLE)
+  set(IsScriptMode FALSE)
+  if("${Role}" STREQUAL "SCRIPT")
+    set(IsScriptMode TRUE)
+
+    # find_package() won't work in script mode (the scripts it finds will almost always call add_library() to create the
+    # neccessary imported targets).
+    set(FD_NO_RESOLVE TRUE)
+  endif()
+
   set(FastMode OFF)
   set(FastModeNotice "")
   if($ENV{FETCH_DEPENDENCY_FAST})
@@ -131,6 +141,15 @@ function(fetch_dependency FD_NAME)
     set(FastModeNotice " (fast)")
   endif()
   message(STATUS "Checking dependency ${FD_NAME}${FastModeNotice}")
+
+  if(NOT FD_GENERATOR)
+    if(IsScriptMode)
+      # In script mode, CMake will not have a generator defined.
+      message(FATAL_ERROR "GENERATOR must be provided when running in script mode.")
+    endif()
+    set(FD_GENERATOR "${CMAKE_GENERATOR}")
+  endif()
+  message(VERBOSE "-- Using generator: ${FD_GENERATOR}")
 
   # Process the source arguments.
   set(SourceMode "")
