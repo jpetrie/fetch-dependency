@@ -114,7 +114,7 @@ endfunction()
 function(fetch_dependency FD_NAME)
   cmake_parse_arguments(FD
     "GIT_DISABLE_SUBMODULES;GIT_DISABLE_SUBMODULE_RECURSION;FETCH_ONLY;NO_RESOLVE;NO_BUILD"
-    "ROOT;GIT_SOURCE;LOCAL_SOURCE;VERSION;PACKAGE_NAME;GENERATOR;CONFIGURATION;CMAKELIST_SUBDIRECTORY;LIST_SEPARATOR;OUT_SOURCE_DIR"
+    "ROOT;SOURCE_ROOT;BINARY_ROOT;GIT_SOURCE;LOCAL_SOURCE;VERSION;PACKAGE_NAME;GENERATOR;CONFIGURATION;CMAKELIST_SUBDIRECTORY;LIST_SEPARATOR;OUT_SOURCE_DIR"
     "GIT_SUBMODULES;CONFIGURE_OPTIONS;BUILD_OPTIONS"
     ${ARGN}
   )
@@ -195,21 +195,41 @@ function(fetch_dependency FD_NAME)
     else()
       set(FD_ROOT "External")
     endif()
-  endif()
-
-  # If FD_ROOT is a relative path, it is interpreted as being relative to the current binary directory.
-  cmake_path(IS_RELATIVE FD_ROOT IsRootRelative)
-  if(IsRootRelative)
-    cmake_path(APPEND CMAKE_BINARY_DIR ${FD_ROOT} OUTPUT_VARIABLE FD_ROOT)
-  endif()
-
-  set(ProjectDirectory "${FD_ROOT}/${FD_NAME}")
-  if("${SourceMode}" STREQUAL "local")
-    set(SourceDirectory "${FD_LOCAL_SOURCE}")
   else()
-    set(SourceDirectory "${ProjectDirectory}/Source")
+    message(AUTHOR_WARNING "ROOT is deprecated and will be removed in a future version of FetchDependency. Use the SOURCE_ROOT and BINARY_ROOT options instead.")
+    set(FD_SOURCE_ROOT "${FD_ROOT}")
+    set(FD_BINARY_ROOT "${FD_ROOT}")
   endif()
 
+  if(NOT FD_SOURCE_ROOT)
+    if(FETCH_DEPENDENCY_DEFAULT_SOURCE_ROOT)
+      set(FD_SOURCE_ROOT "${FETCH_DEPENDENCY_DEFAULT_SOURCE_ROOT}")
+    else()
+      set(FD_SOURCE_ROOT "External")
+    endif()
+  endif()
+
+  if(NOT FD_BINARY_ROOT)
+    if(FETCH_DEPENDENCY_DEFAULT_BINARY_ROOT)
+      set(FD_BINARY_ROOT "${FETCH_DEPENDENCY_DEFAULT_BINARY_ROOT}")
+    else()
+      set(FD_BINARY_ROOT "External")
+    endif()
+  endif()
+
+  # If the roots are relative, they are interpreted as being relative to the current binary directory.
+  cmake_path(IS_RELATIVE FD_SOURCE_ROOT IsSourceRootRelative)
+  if(IsSourceRootRelative)
+    cmake_path(APPEND CMAKE_BINARY_DIR ${FD_SOURCE_ROOT} OUTPUT_VARIABLE FD_SOURCE_ROOT)
+  endif()
+  cmake_path(IS_RELATIVE FD_BINARY_ROOT IsBinaryRootRelative)
+  if(IsBinaryRootRelative)
+    cmake_path(APPEND CMAKE_BINARY_DIR ${FD_BINARY_ROOT} OUTPUT_VARIABLE FD_BINARY_ROOT)
+  endif()
+  cmake_path(SET FD_SOURCE_ROOT NORMALIZE "${FD_SOURCE_ROOT}")
+  cmake_path(SET FD_BINARY_ROOT NORMALIZE "${FD_BINARY_ROOT}")
+
+  set(ProjectDirectory "${FD_BINARY_ROOT}/${FD_NAME}")
   set(BuildDirectory "${ProjectDirectory}/Build")
   set(PackageDirectory "${ProjectDirectory}/Package")
   set(StateDirectory "${ProjectDirectory}/State")
@@ -223,6 +243,18 @@ function(fetch_dependency FD_NAME)
   # The manifest file contains the package directories of every dependency fetched for the calling project so far.
   set(ManifestFile "FetchedDependencies.txt")
   set(ManifestFilePath "${CMAKE_BINARY_DIR}/${ManifestFile}")
+
+  if("${SourceMode}" STREQUAL "local")
+    set(SourceDirectory "${FD_LOCAL_SOURCE}")
+  else()
+    # If the source and binary roots are the same, the source is nested. This preserves the older behavior, prior to
+    # splitting the two roots. It also prevents the binary subdirectories from modifying the source working tree.
+    if("${FD_SOURCE_ROOT}" STREQUAL "${FD_BINARY_ROOT}")
+      set(SourceDirectory "${FD_SOURCE_ROOT}/Source/${FD_NAME}")
+    else()
+      set(SourceDirectory "${FD_SOURCE_ROOT}/${FD_NAME}")
+    endif()
+  endif()
 
   if(UNIX)
     set(ScriptHeader "#!/bin/sh")
