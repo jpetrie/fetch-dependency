@@ -250,19 +250,3 @@ Keep in mind that if you are using `GIT_SOURCE` for your dependency, the depende
 will need to make sure to create a branch from the local changes, switch over to a real branch, and merge those changes
 back in.
 
-## Architecture
-FetchDependency stores each dependency in its own "project folder" under a root directory. The project folder in turn
-contains four directories:
-  - _Source_, which holds the actual dependency source (unless `LOCAL_SOURCE` is being used).
-  - _Build_, which is the project's binary directory.
-  - _Package_, which is where the built project is installed.
-  - _State_, which holds data FetchDependency uses to process the build.
-
-Additionally, FetchDependency maintains a manifest (`FetchedDependencies.txt`) in your project's binary directory that
-lists the absolute path to the package directories for every dependency processed.
-
-When called for a given dependency, `fetch_dependency()` makes sure the source directory is available and matches the
-required `VERSION`. It will then determine if it needs to run the configure and build steps, as specified.
-`fetch_dependency()` always builds the `install` target explicitly. Finally, `fetch_dependency()` calls `find_package()`
-to make the exported targets from the dependency available to the rest of your project's configuration.
-
