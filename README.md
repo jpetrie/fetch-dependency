@@ -172,6 +172,32 @@ Options:
  - `OUT_BINARY_DIR <out-var>` The name of a variable that will be set the absolute path to the dependency's binary tree.
    Note that this variable will not be written to until the corresponding `fetch_dependency()` call completes.
 
+### `export_dependencies()`
+Export dependencies for use in other CMake list files.
+```
+  export_dependencies(
+    [NO_FINDPACKAGE]
+    PATH <path>
+  )
+```
+
+`export_dependencies()` will write a file to `<path>` that can be used to import fetched dependency information in
+another CMake list file. It is intended to be used when calling `fetch_dependency()` in [script
+mode](https://cmake.org/cmake/help/latest/manual/cmake.1.html#cmdoption-cmake-P) to enable another CMake list file, in
+project mode, to import fetched dependencies.
+
+A project-mode list file can consume the exported dependencies by calling
+[`include()`](https://cmake.org/cmake/help/latest/command/include.html) and passing `<path>`. Including the export file
+will:
+ - set `FETCH_DEPENDENCY_PACKAGE_PATHS` and `FETCH_DEPENDENCY_PACKAGE_NAMES` (see below)
+ - append the package paths to `CMAKE_PREFIX_PATH`
+ - call [`find_package()`](https://cmake.org/cmake/help/latest/command/find_package.html) on each dependency
+
+Options:
+ - `PATH <path>` The path to the export file to generate.
+ - `NO_FINDPACKAGE` If set, prevents the generated script from setting `CMAKE_PREFIX_PATH` or calling `find_package()`.
+   This is useful if any additional logic is needed by a project prior to finding the dependency packages.
+
 ### `FETCH_DEPENDENCY_DEFAULT_SOURCE_ROOT`
 Defines the default source root directory for fetched dependencies. It is initially undefined, which causes
 `fetch_dependency()` to fall back to storing dependency source underneath `${CMAKE_BINARY_DIR}/External/`. 
@@ -180,7 +206,16 @@ Defines the default source root directory for fetched dependencies. It is initia
 Defines the default source root directory for dependency binary directories. It is initially undefined, which causes
 `fetch_dependency()` to fall back to storing dependency binaries underneath `${CMAKE_BINARY_DIR}/External/`. 
 
+### `FETCH_DEPENDENCY_PACKAGE_PATHS`
+Stores the set of package directories fetched by the project (and all of its dependencies, recursively) so far.
+
+### `FETCH_DEPENDENCY_PACKAGE_NAMES`
+Stores the set of package names fetched by the project (and all of its dependencies, recursively) so far.
+
 ### `FETCH_DEPENDENCY_PACKAGES`
+⚠️ _This variable is deprecated and will be removed in a future version of FetchDependency. Use
+`FETCH_DEPENDENCY_PACKAGE_PATHS` instead._ ⚠️
+
 Stores the set of package directories fetched by the project (and all of its dependencies, recursively) so far.
 
 ## Recipes

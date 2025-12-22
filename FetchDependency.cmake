@@ -269,7 +269,7 @@ function(fetch_dependency FD_NAME)
   set(ConfigureScriptTemplateFilePath "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Steps/configure.in")
   set(BuildScriptTemplateFilePath "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Steps/build.in")
 
-  list(APPEND FETCH_DEPENDENCY_PACKAGES "${PackageDirectory}")
+  list(APPEND FETCH_DEPENDENCY_PACKAGE_PATHS "${PackageDirectory}")
 
   if(FD_OUT_SOURCE_DIR)
     set(${FD_OUT_SOURCE_DIR} "${SourceDirectory}" PARENT_SCOPE)
@@ -434,7 +434,7 @@ function(fetch_dependency FD_NAME)
         # When invoking CMake, the package paths are passed via the CMAKE_PREFIX_PATH environment variable. This avoids a
         # warning that would otherwise be generated if the dependency never actually caused CMAKE_PREFIX_PATH to be
         # referenced. Note that the platform path delimiter must be used to separate individual paths in this case.
-        set(Packages ${FETCH_DEPENDENCY_PACKAGES})
+        set(Packages ${FETCH_DEPENDENCY_PACKAGE_PATHS})
         if(UNIX)
           string(REPLACE ";" ":" Packages "${Packages}")
         endif()
@@ -491,33 +491,49 @@ function(fetch_dependency FD_NAME)
       list(REMOVE_DUPLICATES PropagatedPackages)
       foreach(Propagated ${PropagatedPackages})
         # Ensure the package is propagated down.
-        list(APPEND FETCH_DEPENDENCY_PACKAGES "${DependencyPackage}")
+        list(APPEND FETCH_DEPENDENCY_PACKAGE_PATHS "${DependencyPackage}")
 
         string(REGEX REPLACE "/Package$" "" PackageName "${DependencyPackage}")
         cmake_path(GET PackageName FILENAME PackageName)
 
         # Resolve the dependency in the context of the calling project. This ensures that if the dependency includes
         # them in its link interface, they're loaded when CMake tries to actually link with the this dependency.
-        _fd_find(${PackageName} ROOT ${DependencyPackage} PATHS ${FETCH_DEPENDENCY_PACKAGES})
+        _fd_find(${PackageName} ROOT ${DependencyPackage} PATHS ${FETCH_DEPENDENCY_PACKAGE_PATHS})
       endforeach()
     endif()
 
     if(NOT FD_NO_RESOLVE)
       # Write the most up-to-date package manifest so that anything downstream of the calling project will know where its
       # dependencies were written to.
-      string(REPLACE ";" "\n" ManifestContent "${FETCH_DEPENDENCY_PACKAGES}")
+      string(REPLACE ";" "\n" ManifestContent "${FETCH_DEPENDENCY_PACKAGE_PATHS}")
       file(WRITE ${ManifestFilePath} "${ManifestContent}\n")
 
-      _fd_find(${FD_PACKAGE_NAME} ROOT ${PackageDirectory} PATHS ${DependencyPackages} ${FETCH_DEPENDENCY_PACKAGES})
+      _fd_find(${FD_PACKAGE_NAME} ROOT ${PackageDirectory} PATHS ${DependencyPackages} ${FETCH_DEPENDENCY_PACKAGE_PATHS})
     endif()
 
     # Propagate the updated package directory list.
-    set(FETCH_DEPENDENCY_PACKAGES "${FETCH_DEPENDENCY_PACKAGES}" PARENT_SCOPE)
+    set(FETCH_DEPENDENCY_PACKAGE_PATHS "${FETCH_DEPENDENCY_PACKAGE_PATHS}" PARENT_SCOPE)
   endif()
 
   # The dependency was fully-processed, so stamp it with the current storage version.
   file(WRITE ${VersionFilePath} "${StorageVersion}")
 
+  list(APPEND FETCH_DEPENDENCY_PACKAGE_NAMES "${FD_PACKAGE_NAME}")
+  set(FETCH_DEPENDENCY_PACKAGE_NAMES "${FETCH_DEPENDENCY_PACKAGE_NAMES}" PARENT_SCOPE)
+
+  # Set the old version of the package path property, which is now deprecated and will be removed in a future update.
+  set(FETCH_DEPENDENCY_PACKAGES "${FETCH_DEPENDENCY_PACKAGE_PATHS}" PARENT_SCOPE)
+
   message(STATUS "Checking dependency ${FD_NAME} - done")
 endfunction()
 
+function(export_dependencies)
+  cmake_parse_arguments(ED "NO_FINDPACKAGE" "PATH" "" ${ARGN})
+
+  set(FindPackageCalls "")
+  foreach(Name ${FETCH_DEPENDENCY_PACKAGE_NAMES})
+    set(FindPackageCalls "${FindPackageCalls}\n  find_package(\"${Name}\")")
+  endforeach()
+
+  configure_file("${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Steps/import.cmake.in" "${ED_PATH}")
+endfunction()
