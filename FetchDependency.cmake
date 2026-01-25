@@ -113,16 +113,11 @@ endfunction()
 
 function(fetch_dependency FD_NAME)
   cmake_parse_arguments(FD
-    "GIT_DISABLE_SUBMODULES;GIT_DISABLE_SUBMODULE_RECURSION;FETCH_ONLY;NO_RESOLVE;NO_BUILD"
-    "ROOT;SOURCE_ROOT;BINARY_ROOT;GIT_SOURCE;LOCAL_SOURCE;VERSION;PACKAGE_NAME;GENERATOR;CONFIGURATION;CMAKELIST_SUBDIRECTORY;LIST_SEPARATOR;OUT_SOURCE_DIR"
+    "GIT_DISABLE_SUBMODULES;GIT_DISABLE_SUBMODULE_RECURSION;NO_RESOLVE;NO_BUILD"
+    "SOURCE_ROOT;BINARY_ROOT;GIT_SOURCE;LOCAL_SOURCE;VERSION;PACKAGE_NAME;GENERATOR;CONFIGURATION;CMAKELIST_SUBDIRECTORY;LIST_SEPARATOR;OUT_SOURCE_DIR"
     "GIT_SUBMODULES;CONFIGURE_OPTIONS;BUILD_OPTIONS"
     ${ARGN}
   )
-
-  if(FD_FETCH_ONLY)
-    message(AUTHOR_WARNING "FETCH_ONLY is deprecated and will be removed in a future version of FetchDependency. Use the NO_BUILD option instead.")
-    set(FD_NO_BUILD TRUE)
-  endif()
 
   get_property(Role GLOBAL PROPERTY CMAKE_ROLE)
   set(IsScriptMode FALSE)
@@ -187,18 +182,6 @@ function(fetch_dependency FD_NAME)
 
   if(NOT FD_PACKAGE_NAME)
     set(FD_PACKAGE_NAME "${FD_NAME}")
-  endif()
-
-  if(NOT FD_ROOT)
-    if(FETCH_DEPENDENCY_DEFAULT_ROOT)
-      set(FD_ROOT "${FETCH_DEPENDENCY_DEFAULT_ROOT}")
-    else()
-      set(FD_ROOT "External")
-    endif()
-  else()
-    message(AUTHOR_WARNING "ROOT is deprecated and will be removed in a future version of FetchDependency. Use the SOURCE_ROOT and BINARY_ROOT options instead.")
-    set(FD_SOURCE_ROOT "${FD_ROOT}")
-    set(FD_BINARY_ROOT "${FD_ROOT}")
   endif()
 
   if(NOT FD_SOURCE_ROOT)
@@ -520,9 +503,6 @@ function(fetch_dependency FD_NAME)
 
   list(APPEND FETCH_DEPENDENCY_PACKAGE_NAMES "${FD_PACKAGE_NAME}")
   set(FETCH_DEPENDENCY_PACKAGE_NAMES "${FETCH_DEPENDENCY_PACKAGE_NAMES}" PARENT_SCOPE)
-
-  # Set the old version of the package path property, which is now deprecated and will be removed in a future update.
-  set(FETCH_DEPENDENCY_PACKAGES "${FETCH_DEPENDENCY_PACKAGE_PATHS}" PARENT_SCOPE)
 
   message(STATUS "Checking dependency ${FD_NAME} - done")
 endfunction()
