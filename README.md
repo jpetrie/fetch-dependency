@@ -212,12 +212,6 @@ Stores the set of package directories fetched by the project (and all of its dep
 ### `FETCH_DEPENDENCY_PACKAGE_NAMES`
 Stores the set of package names fetched by the project (and all of its dependencies, recursively) so far.
 
-### `FETCH_DEPENDENCY_PACKAGES`
-⚠️ _This variable is deprecated and will be removed in a future version of FetchDependency. Use
-`FETCH_DEPENDENCY_PACKAGE_PATHS` instead._ ⚠️
-
-Stores the set of package directories fetched by the project (and all of its dependencies, recursively) so far.
-
 ## Recipes
 ### Fast Build Infrastructure Iteration
 In cases where you need to work on your project's `CMakeLists.txt` or similar and will be repeatedly re-configuring your
