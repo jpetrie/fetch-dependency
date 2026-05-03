@@ -212,35 +212,3 @@ Stores the set of package directories fetched by the project (and all of its dep
 ### `FETCH_DEPENDENCY_PACKAGE_NAMES`
 Stores the set of package names fetched by the project (and all of its dependencies, recursively) so far.
 
-## Recipes
-### Fast Build Infrastructure Iteration
-In cases where you need to work on your project's `CMakeLists.txt` or similar and will be repeatedly re-configuring your
-project, it can be desirable to skip as much of FetchDependency's overhead as possible. This can be accomplished by
-setting the environment variable `FETCH_DEPENDENCY_FAST` to 1.
-
-When this "fast mode" is enabled, `fetch_dependency()` only executes the logic needed to call `find_package()` on the
-dependency. It skips the up-to-date checks and build attempts that it might normally run, saving considerable time in
-the configuration process (especially if you have many dependencies).
-
-"Fast mode" requires that a regular configure has been executed at least once, or the files necessary for the
-`find_package()` machinery to work correctly will not exist and the configuration will fail.
-
-### Local Dependency Edits
-Sometimes it is necessary to make local changes to a dependency - if it's something you are developing it parallel to
-your main project, or if there are bugs you're trying to address. FetchDependency generates CMake projects for each
-dependency, so it is possible to simply use those generated projects as you would normally. FetchDependency also allows
-you to reproduce the configure and build steps it uses exactly by executing scripts in the `State` subdirectory of the
-dependency folder. These scripts will be named `configure.sh`/`build.sh` or `configure.bat`/`build.bat` depending on
-your OS. 
-
-When FetchDependency detects a local change to a dependency's source (either because `LOCAL_SOURCE` is in use, or
-because the Git working tree is dirty), it will never attempt to perform any updates to the source and it will always
-attempt to trigger the build step. Note that there is no link created between dependency source files and any targets
-in your main project, so simply building that may not detect local changes to a dependency - you will need to explicitly
-run CMake against your main project, or use the per-dependency scripts within their state folder.
-
-Keep in mind that if you are using `GIT_SOURCE` for your dependency, the dependency's working tree is very likely in a
-"detached HEAD" state (confirm with `git status`). If that is true and you want to commit any local edits you make, you
-will need to make sure to create a branch from the local changes, switch over to a real branch, and merge those changes
-back in.
-
