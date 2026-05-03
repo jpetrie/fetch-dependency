@@ -23,8 +23,9 @@ and build of all dependencies.
 ## Installation
 FetchDependency requires CMake 3.25 or later.
 
-The recommended way to automatically include FetchDependency in your project is to use CMake's
-[FetchContent](https://cmake.org/cmake/help/latest/module/FetchContent.html) module:
+The recommended way to automatically include FetchDependency in your project is to use
+[Git submodules](https://git-scm.com/book/en/v2/Git-Tools-Submodules) or CMake's
+[FetchContent](https://cmake.org/cmake/help/latest/module/FetchContent.html) module from within your `CMakeLists.txt`:
 
 ```cmake
 include(FetchContent)
