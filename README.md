@@ -14,11 +14,10 @@ The cost of the aforementioned features is increased configuration time when usi
 the initial configuration, as all dependencies are downloaded and built from source. This is _noticeably un-CMake-like
 behavior_, but it is necessary to achieve the above.
 
-To alleviate the impact of configure-time builds, FetchDependency attempts to minimize build invocations by tracking
-information about the build such as its commit hash and the options used to configure it. Additionally, most of
-FetchDependency's expensive logic can be temporarily bypassed entirely by setting the environment variable
-`FETCH_DEPENDENCY_FAST` to 1. This enables rapid iteration on your build infrastructure following the initial configure
-and build of all dependencies.
+FetchDependency also supports [script mode](https://cmake.org/cmake/help/latest/manual/cmake.1.html#run-a-script)
+invocation, which allows dependency setup to occur only under the explicit control of the user. This avoids
+FetchDependency's configuration-time overhead at the cost of requiring a user to manually run a script at least once
+to populate the dependencies.
 
 ## Installation
 FetchDependency requires CMake 3.25 or later.
@@ -40,13 +39,17 @@ include(${fetchdependency_SOURCE_DIR}/FetchDependency.cmake)
 ## Usage
 Calling `fetch_dependency()` will fetch, build and install a dependency package:
 ```cmake
-  fetch_dependency(Catch2 GIT_SOURCE https://github.com/catchorg/Catch2.git VERSION v2.13.8 CONFIGURATION Release)
+fetch_dependency(Catch2
+  GIT_SOURCE https://github.com/catchorg/Catch2.git
+  VERSION v2.13.8
+  CONFIGURATION Release
+)
 ```
 
 This will make the Release configuration of [Catch2](https://github.com/catchorg/Catch2) immediately available to the
 calling project's future targets:
 ```cmake
-  target_link_libraries(... Catch2::Catch2)
+target_link_libraries(... Catch2::Catch2)
 ```
 
 FetchDependency can resolve targets for dependencies that support
@@ -63,27 +66,27 @@ below for details.
 ### `fetch_dependency()`
 Download, build and locally install a dependency named `<name>` during configuration.
 ```
-  fetch_dependency(
-    <name>
-    LOCAL_SOURCE <path>
-    GIT_SOURCE <url>
-    [VERSION <version>]
-    [NO_RESOLVE]
-    [NO_BUILD]
-    [GIT_DISABLE_SUBMODULES]
-    [GIT_DISABLE_SUBMODULE_RECURSION]
-    [GIT_SUBMODULES <paths...>]
-    [SOURCE_ROOT <path>]
-    [BINARY_ROOT <path>]
-    [PACKAGE_NAME <package>]
-    [GENERATOR <generator>]
-    [CONFIGURATION <configuration>]
-    [CONFIGURE_OPTIONS <options...>]
-    [BUILD_OPTIONS <options...>]
-    [CMAKELIST_SUBDIRECTORY <path>]
-    [LIST_SEPARATOR <separator>]
-    [OUT_SOURCE_DIR <out-var>]
-  )
+fetch_dependency(
+  <name>
+  LOCAL_SOURCE <path>
+  GIT_SOURCE <url>
+  [VERSION <version>]
+  [NO_RESOLVE]
+  [NO_BUILD]
+  [GIT_DISABLE_SUBMODULES]
+  [GIT_DISABLE_SUBMODULE_RECURSION]
+  [GIT_SUBMODULES <paths...>]
+  [SOURCE_ROOT <path>]
+  [BINARY_ROOT <path>]
+  [PACKAGE_NAME <package>]
+  [GENERATOR <generator>]
+  [CONFIGURATION <configuration>]
+  [CONFIGURE_OPTIONS <options...>]
+  [BUILD_OPTIONS <options...>]
+  [CMAKELIST_SUBDIRECTORY <path>]
+  [LIST_SEPARATOR <separator>]
+  [OUT_SOURCE_DIR <out-var>]
+)
 ```
 `<name>` is used to create the directory where the dependency's source and artifacts will be stored. Unless
 `PACKAGE_NAME` is provided (see below), it will also be used in the internal `find_package()` call to locate the
@@ -149,13 +152,13 @@ Options:
 ### `declare_dependency()`
 Pre-declare a dependency's configuration.
 ```
-  declare_dependency(
-    <name>
-    CONFIGURATION <path>
-    [CONFIGURE_OPTIONS <options...>]
-    [BUILD_OPTIONS <options...>]
-    [OUT_BINARY_DIR <out-var>]
-  )
+declare_dependency(
+  <name>
+  CONFIGURATION <path>
+  [CONFIGURE_OPTIONS <options...>]
+  [BUILD_OPTIONS <options...>]
+  [OUT_BINARY_DIR <out-var>]
+)
 ```
 
 `declare_dependency()` must be called before the corresponding `fetch_dependency()` call. When pre-declaring
@@ -176,10 +179,10 @@ Options:
 ### `export_dependencies()`
 Export dependencies for use in other CMake list files.
 ```
-  export_dependencies(
-    [NO_FINDPACKAGE]
-    PATH <path>
-  )
+export_dependencies(
+  [NO_FINDPACKAGE]
+  PATH <path>
+)
 ```
 
 `export_dependencies()` will write a file to `<path>` that can be used to import fetched dependency information in
