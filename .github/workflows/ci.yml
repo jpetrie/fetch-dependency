@@ -11,7 +11,7 @@ jobs:
     runs-on: macos-26
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Test 0
         run: |
           cd $GITHUB_WORKSPACE/Tests/T0-Basic
