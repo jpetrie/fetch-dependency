@@ -474,9 +474,9 @@ function(fetch_dependency FD_NAME)
       list(REMOVE_DUPLICATES PropagatedPackages)
       foreach(Propagated ${PropagatedPackages})
         # Ensure the package is propagated down.
-        list(APPEND FETCH_DEPENDENCY_PACKAGE_PATHS "${DependencyPackage}")
+        list(APPEND FETCH_DEPENDENCY_PACKAGE_PATHS "${Propagated}")
 
-        string(REGEX REPLACE "/Package$" "" PackageName "${DependencyPackage}")
+        string(REGEX REPLACE "/Package$" "" PackageName "${Propagated}")
         cmake_path(GET PackageName FILENAME PackageName)
 
         # Resolve the dependency in the context of the calling project. This ensures that if the dependency includes
