@@ -1,8 +1,7 @@
 cmake_minimum_required(VERSION 3.25)
 project(T0-Basic)
 
-set(CMAKE_MODULE_PATH "../../")
-include(FetchDependency)
+include(../../FetchDependency.cmake)
 
 fetch_dependency(A
   LOCAL_SOURCE ../LibA
