@@ -18,3 +18,7 @@ jobs:
           cmake -B Build
           cmake --build Build
           ./Build/T00
+          cd $GITHUB_WORKSPACE/Tests/T1-Nested
+          cmake -B Build
+          cmake --build Build
+          ./Build/T01
